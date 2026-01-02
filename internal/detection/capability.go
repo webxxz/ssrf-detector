@@ -89,7 +89,6 @@ func (e *CapabilityEngine) Execute(ctx context.Context, target *core.Target, sta
 				Callback:      callback,
 				CorrelationID: identifier,
 				Verified:      true,
-				timestamp:     time.Now(),
 			}
 			result.Evidence = append(result.Evidence, evidence)
 		}
