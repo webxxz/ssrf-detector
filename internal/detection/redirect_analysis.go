@@ -145,11 +145,11 @@ func (e *RedirectAnalysisEngine) testServerSideRedirect(ctx context.Context, tar
 	identifier, _ := e.oobManager.GenerateIdentifier(target, "server-redirect")
 	oobURL, _ := e.oobManager.BuildURL(identifier, "/server-side-test")
 
-	// Record request time
+	// Record request time for timing analysis
 	requestTime := time.Now()
 
-	// Send request
-	resp, err := e.sendTest(ctx, target, oobURL)
+	// Send request - we don't need the response, only the OOB callback
+	_, err := e.sendTest(ctx, target, oobURL)
 	if err != nil {
 		return false, err
 	}
@@ -160,7 +160,7 @@ func (e *RedirectAnalysisEngine) testServerSideRedirect(ctx context.Context, tar
 	oobCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	callback, err := e.oobManager.WaitForCallback(oobCtx, identifier, 5*time.Second)
+	callback, _ := e.oobManager.WaitForCallback(oobCtx, identifier, 5*time.Second)
 
 	if callback == nil {
 		// No callback - likely client-side redirect only
@@ -168,8 +168,14 @@ func (e *RedirectAnalysisEngine) testServerSideRedirect(ctx context.Context, tar
 	}
 
 	// Check timing: Was callback BEFORE response (server-side) or AFTER (client-side)?
+	// If callback came between request and response, it's definitely server-side
+	if callback.Timestamp.After(requestTime) && callback.Timestamp.Before(responseTime) {
+		// Server fetched during request processing
+		return true, nil
+	}
+
+	// If callback came before response time, server fetched before responding to client
 	if callback.Timestamp.Before(responseTime) {
-		// Server fetched before responding to client
 		return true, nil
 	}
 
