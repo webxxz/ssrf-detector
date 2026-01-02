@@ -132,7 +132,7 @@ func (e *ParserDifferentialEngine) testIPRepresentations(ctx context.Context, ta
 	baseURL, _ := e.oobManager.BuildURL(identifier, "/ip-test")
 
 	// Test 1: Standard form (baseline)
-	resp1, _ := e.sendTest(ctx, target, baseURL)
+	_, _ = e.sendTest(ctx, target, baseURL)
 	callback1, _ := e.oobManager.CheckCallback(identifier)
 
 	if callback1 == nil {
@@ -144,7 +144,7 @@ func (e *ParserDifferentialEngine) testIPRepresentations(ctx context.Context, ta
 	identifier2, _ := e.oobManager.GenerateIdentifier(target, "ip-repr-case")
 	caseURL := "HTTP://" + identifier2 + "." + e.config.OOBDomain + "/case-test"
 
-	resp2, _ := e.sendTest(ctx, target, caseURL)
+	_, _ = e.sendTest(ctx, target, caseURL)
 	callback2, _ := e.oobManager.CheckCallback(identifier2)
 
 	// If one works and other doesn't, there's a case sensitivity differential
@@ -161,8 +161,8 @@ func (e *ParserDifferentialEngine) testAuthoritySectionParsing(ctx context.Conte
 	identifier1, _ := e.oobManager.GenerateIdentifier(target, "auth-base")
 	baseURL, _ := e.oobManager.BuildURL(identifier1, "/auth-test")
 
-	// Send baseline
-	resp1, _ := e.sendTest(ctx, target, baseURL)
+	// Send baseline - response not needed, only checking OOB callback
+	_, _ = e.sendTest(ctx, target, baseURL)
 	callback1, _ := e.oobManager.CheckCallback(identifier1)
 
 	if callback1 == nil {
@@ -177,13 +177,13 @@ func (e *ParserDifferentialEngine) testAuthoritySectionParsing(ctx context.Conte
 	// Others see "fake@identifier.oob.domain" as host
 	userInfoURL := fmt.Sprintf("http://fake@%s.%s/userinfo-test", identifier2, e.config.OOBDomain)
 
-	resp2, _ := e.sendTest(ctx, target, userInfoURL)
+	resp, _ := e.sendTest(ctx, target, userInfoURL)
 	callback2, _ := e.oobManager.CheckCallback(identifier2)
 
 	// Check if callback received (indicates @ parsed correctly by client)
 	if callback2 != nil {
 		// Check validator behavior from response
-		if resp2 != nil && resp2.StatusCode >= 400 {
+		if resp != nil && resp.StatusCode >= 400 {
 			// Validator rejected but client would accept
 			return true, nil // Differential found
 		}
@@ -197,8 +197,8 @@ func (e *ParserDifferentialEngine) testSchemeParsing(ctx context.Context, target
 	identifier, _ := e.oobManager.GenerateIdentifier(target, "scheme")
 	baseURL, _ := e.oobManager.BuildURL(identifier, "/scheme-test")
 
-	// Test 1: Standard lowercase
-	resp1, _ := e.sendTest(ctx, target, baseURL)
+	// Test 1: Standard lowercase - response not needed, only checking OOB callback
+	_, _ = e.sendTest(ctx, target, baseURL)
 	callback1, _ := e.oobManager.CheckCallback(identifier)
 
 	if callback1 == nil {
@@ -209,7 +209,7 @@ func (e *ParserDifferentialEngine) testSchemeParsing(ctx context.Context, target
 	identifier2, _ := e.oobManager.GenerateIdentifier(target, "scheme-upper")
 	upperURL := "HTTP://" + identifier2 + "." + e.config.OOBDomain + "/upper"
 
-	resp2, timing2, _ := e.sendTestWithTiming(ctx, target, upperURL)
+	resp, timing, _ := e.sendTestWithTiming(ctx, target, upperURL)
 	callback2, _ := e.oobManager.CheckCallback(identifier2)
 
 	// Check for differential
@@ -218,9 +218,9 @@ func (e *ParserDifferentialEngine) testSchemeParsing(ctx context.Context, target
 	}
 
 	// Also check timing - if validator rejects quickly vs processes
-	if resp2 != nil && timing2 != nil && state.Baseline != nil {
-		respTime := timing2.End.Sub(timing2.Start)
-		if respTime < state.Baseline.ResponseTime/2 && resp2.StatusCode >= 400 {
+	if resp != nil && timing != nil && state.Baseline != nil {
+		respTime := timing.End.Sub(timing.Start)
+		if respTime < state.Baseline.ResponseTime/2 && resp.StatusCode >= 400 {
 			// Quick rejection suggests validator saw uppercase as invalid
 			// But need to check if client would accept
 			return true, nil
@@ -235,7 +235,8 @@ func (e *ParserDifferentialEngine) testFragmentHandling(ctx context.Context, tar
 	identifier1, _ := e.oobManager.GenerateIdentifier(target, "frag-base")
 	baseURL, _ := e.oobManager.BuildURL(identifier1, "/fragment-test")
 
-	resp1, _ := e.sendTest(ctx, target, baseURL)
+	// Response not needed, only checking OOB callback
+	_, _ = e.sendTest(ctx, target, baseURL)
 	callback1, _ := e.oobManager.CheckCallback(identifier1)
 
 	if callback1 == nil {
@@ -246,7 +247,7 @@ func (e *ParserDifferentialEngine) testFragmentHandling(ctx context.Context, tar
 	identifier2, _ := e.oobManager.GenerateIdentifier(target, "frag-test")
 	fragmentURL := fmt.Sprintf("http://%s.%s/test#fragment", identifier2, e.config.OOBDomain)
 
-	resp2, _ := e.sendTest(ctx, target, fragmentURL)
+	_, _ = e.sendTest(ctx, target, fragmentURL)
 	callback2, _ := e.oobManager.CheckCallback(identifier2)
 
 	// Check if fragment was sent to server (non-standard)

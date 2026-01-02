@@ -174,7 +174,7 @@ func (e *CapabilityEngine) analyzeCapability(resp *core.Response, callback *core
 		}
 
 		// Check if response includes external content
-		if resp.BodyBytes != nil && len(resp.BodyBytes) > 0 {
+		if len(resp.BodyBytes) > 0 {
 			// Look for OOB domain in response
 			if contains(string(resp.BodyBytes), e.config.OOBDomain) {
 				// Could be reflection or actual fetch

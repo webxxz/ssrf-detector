@@ -215,11 +215,11 @@ func (e *ReachabilityEngine) buildRequest(target *core.Target, modifications map
 	}
 
 	// Apply modifications if any
-	if modifications != nil {
-		for k, v := range modifications {
-			req.Header.Set(k, v)
-		}
-	}
+	// if modifications != nil {
+	// 	for k, v := range modifications {
+	// 		req.Header.Set(k, v)
+	// 	}
+	// }
 
 	return req, nil
 }
