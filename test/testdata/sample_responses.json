@@ -1,0 +1,109 @@
+{
+  "responses": {
+    "baseline_normal": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8",
+        "Server": "nginx/1.18.0"
+      },
+      "body": "<!DOCTYPE html><html><body>Normal response</body></html>",
+      "timing_ms": 150
+    },
+    "ssrf_vulnerable": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "text/plain"
+      },
+      "body": "Fetched content from external URL",
+      "timing_ms": 320
+    },
+    "reflection_only": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "text/html"
+      },
+      "body": "Your URL: http://attacker.com (reflected)",
+      "timing_ms": 145
+    },
+    "aws_metadata": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "text/plain",
+        "Server": "EC2ws"
+      },
+      "body": "i-0123456789abcdef0",
+      "timing_ms": 8
+    },
+    "open_redirect": {
+      "status_code": 302,
+      "headers": {
+        "Location": "http://attacker.com",
+        "Content-Type": "text/html"
+      },
+      "body": "Redirecting...",
+      "timing_ms": 50
+    },
+    "internal_network": {
+      "status_code": 500,
+      "headers": {
+        "Content-Type": "text/plain"
+      },
+      "body": "Error: Connection refused to 127.0.0.1:6379",
+      "timing_ms": 25
+    },
+    "dns_timeout": {
+      "status_code": 500,
+      "headers": {
+        "Content-Type": "text/plain"
+      },
+      "body": "Error: DNS resolution failed for nonexistent-domain-xyz.invalid",
+      "timing_ms": 5200
+    },
+    "protocol_not_supported": {
+      "status_code": 400,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"error\": \"Protocol 'file' not supported\"}",
+      "timing_ms": 35
+    }
+  },
+  "oob_callbacks": {
+    "server_side_fetch": {
+      "source_ip": "203.0.113.50",
+      "user_agent": "Python-urllib/3.9",
+      "method": "GET",
+      "path": "/callback-test",
+      "headers": {
+        "Host": "oob.example.com",
+        "Accept-Encoding": "identity",
+        "Connection": "close"
+      },
+      "timestamp": "2024-01-15T10:30:45.123Z"
+    },
+    "client_side_browser": {
+      "source_ip": "192.0.2.100",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "method": "GET",
+      "path": "/callback-test",
+      "headers": {
+        "Host": "oob.example.com",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Referer": "https://target.com/redirect?url=http://oob.example.com"
+      },
+      "timestamp": "2024-01-15T10:30:48.456Z"
+    },
+    "cdn_prefetch": {
+      "source_ip": "104.16.123.45",
+      "user_agent": "Mozilla/5.0 (compatible; CloudFlare-AlwaysOnline/1.0; +http://www.cloudflare.com/always-online)",
+      "method": "GET",
+      "path": "/callback-test",
+      "headers": {
+        "Host": "oob.example.com",
+        "CF-Connecting-IP": "203.0.113.50"
+      },
+      "timestamp": "2024-01-15T10:30:46.789Z"
+    }
+  }
+}

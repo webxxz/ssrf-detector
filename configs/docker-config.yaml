@@ -1,0 +1,42 @@
+# SSRF Detector Docker Configuration
+# This configuration is optimized for containerized deployment
+
+# OOB Configuration
+oob_domain: "${OOB_DOMAIN}"
+oob_server_url: "http://0.0.0.0:8080"
+oob_timeout: "30s"
+
+# Authorization Level (set via environment)
+auth_level: "${AUTH_LEVEL:-none}"
+
+# Scope Configuration
+scope:
+  in_scope:
+    - "*"  # Allow all in container context
+  out_of_scope: []
+  allow_internal_ips: false
+  allow_cloud_metadata: false
+  allow_protocol_escalation: false
+
+# HTTP Client Settings
+http_timeout: "15s"
+follow_redirects: false
+max_redirects: 5
+user_agent: "Mozilla/5.0 (compatible; SSRFDetector/1.0; Docker)"
+
+# Performance Settings
+rate_limit: 10
+concurrency: 5
+max_internal_tests: 10
+
+# Detection Settings
+baseline_samples: 10
+statistical_threshold: 3.0
+
+# Output Settings
+verbose: true
+report_format: "json"
+output_file: "/app/reports/scan-report.json"
+
+# Safety
+dry_run: false

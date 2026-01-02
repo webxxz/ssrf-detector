@@ -1,0 +1,47 @@
+# SSRF Detector Configuration
+
+# OOB (Out-of-Band) Configuration
+oob_domain: "oob.yourdomain.com"
+oob_server_url: "http://localhost:8080"
+oob_timeout: "30s"
+
+# Authorization Level
+# none (0) - External scanner resources only
+# basic (1) - Bug bounty / external assessment
+# full (2) - Red team / internal assessment  
+# exploit (3) - Controlled environment only
+auth_level: "none"
+
+# Scope Configuration
+scope:
+  in_scope:
+    - "*.example.com"
+    - "target.com"
+  out_of_scope:
+    - "*.internal.example.com"
+  allow_internal_ips: false
+  allow_cloud_metadata: false
+  allow_protocol_escalation: false
+
+# HTTP Client Settings
+http_timeout: "10s"
+follow_redirects: false
+max_redirects: 5
+user_agent: "Mozilla/5.0 (compatible; SSRFDetector/1.0)"
+
+# Performance Settings
+rate_limit: 10  # requests per second
+concurrency: 5
+max_internal_tests: 10
+
+# Detection Settings
+baseline_samples: 10
+statistical_threshold: 3.0  # sigma
+
+# Output Settings
+verbose: true
+report_format: "json"  # json, markdown, csv
+output_file: "reports/scan-report.json"
+
+# Safety
+dry_run: false

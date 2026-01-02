@@ -1,0 +1,66 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Build artifacts
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+bin/
+
+# Testing
+*.test
+*.out
+coverage.html
+test/
+testdata/
+
+# Dependencies (will be downloaded in container)
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation (not needed in container)
+docs/
+*.md
+!README.md
+
+# Reports and logs
+reports/
+*.log
+logs/
+
+# Config (use docker-config.yaml instead)
+configs/*.yaml
+!configs/docker-config.yaml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Examples and scripts (not needed in production container)
+examples/
+scripts/
+
+# Environment files
+.env
+.env.*
+secrets/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+Thumbs.db

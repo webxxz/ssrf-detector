@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  ssrf-detector:
+    build: .
+    image: ssrf-detector:latest
+    container_name: ssrf-detector
+    ports:
+      - "8080:8080"
+    environment:
+      - SSRF_OOB_DOMAIN=${OOB_DOMAIN:-oob.example.com}
+      - SSRF_AUTH_LEVEL=${AUTH_LEVEL:-none}
+    volumes:
+      - ./reports:/app/reports
+      - ./configs/config.yaml:/app/config.yaml:ro
+    command: >
+      -u "${TARGET_URL:-https://example.com/fetch?url=test}"
+      -p "${PARAM_NAME:-url}"
+      --oob-domain "${OOB_DOMAIN:-oob.example.com}"
+      -o /app/reports/scan-report.json
+      -v
+    restart: unless-stopped
+    networks:
+      - scanner-network
+
+  # Optional: Run your own OOB callback server
+  oob-server:
+    image: nginx:alpine
+    container_name: oob-callback-server
+    ports:
+      - "80:80"
+    volumes:
+      - ./oob-logs:/var/log/nginx
+    networks:
+      - scanner-network
+
+networks:
+  scanner-network:
+    driver: bridge

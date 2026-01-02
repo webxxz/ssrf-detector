@@ -1,0 +1,41 @@
+# Binaries
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+*.out
+coverage.html
+
+# Go workspace
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Reports
+reports/*.json
+reports/*.md
+reports/*.csv
+
+# Logs
+*.log
+
+# Config (keep examples)
+configs/config.yaml
+!configs/*.example
+!configs/docker-config.yaml
+
+# Secrets
+.env
+secrets/
