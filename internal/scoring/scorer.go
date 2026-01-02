@@ -78,14 +78,6 @@ func (s *Scorer) CalculateSeverity(vulnType core.VulnerabilityType, evidence []c
 					severity = core.SeverityCritical
 				}
 			}
-
-		case core.EvidenceProtocolEscalation:
-			// Protocol escalation (e.g., file://) is critical
-			if protocolEv, ok := ev.(*ProtocolEscalationEvidence); ok {
-				if protocolEv.Protocol == "file" && protocolEv.Supported {
-					return core.SeverityCritical
-				}
-			}
 		}
 	}
 
@@ -141,8 +133,6 @@ func (s *Scorer) ClassifyVulnerability(evidence []core.Evidence, state *core.Sca
 		case core.EvidenceRedirectFollowing:
 			hasRedirect = true
 
-		case core.EvidenceProtocolEscalation:
-			hasProtocolEscalation = true
 		}
 	}
 
@@ -385,10 +375,6 @@ type ProtocolEscalationEvidence struct {
 	ErrorPattern string
 	Supported    bool
 	timestamp    time.Time
-}
-
-func (e *ProtocolEscalationEvidence) Type() core.EvidenceType {
-	return core.EvidenceProtocolEscalation
 }
 
 func (e *ProtocolEscalationEvidence) Score() int {

@@ -107,7 +107,7 @@ func (e *ProtocolEscalationEngine) detectProtocolSupport(ctx context.Context, ta
 				// If file:// has different error, it was recognized/attempted
 				if !contains(errorPattern, "Invalid") && !contains(errorPattern, "not supported") {
 					// May be supported - create evidence
-					evidence := &ProtocolEscalationEvidence{
+					_ = &ProtocolEscalationEvidence{
 						Protocol:     "file",
 						ErrorPattern: errorPattern,
 						Supported:    !contains(errorPattern, "not supported"),
@@ -130,7 +130,7 @@ func (e *ProtocolEscalationEngine) testSchemeValidation(ctx context.Context, tar
 	id1, _ := e.oobManager.GenerateIdentifier(target, "scheme-http")
 	httpURL, _ := e.oobManager.BuildURL(id1, "/scheme-test")
 
-	resp1, _ := e.sendTest(ctx, target, httpURL)
+	_, _ = e.sendTest(ctx, target, httpURL)
 	callback1, _ := e.oobManager.CheckCallback(id1)
 
 	validation["http_allowed"] = (callback1 != nil)
@@ -139,7 +139,7 @@ func (e *ProtocolEscalationEngine) testSchemeValidation(ctx context.Context, tar
 	id2, _ := e.oobManager.GenerateIdentifier(target, "scheme-https")
 	httpsURL := "https://" + id2 + "." + e.config.OOBDomain + "/scheme-test"
 
-	resp2, _ := e.sendTest(ctx, target, httpsURL)
+	_, _ = e.sendTest(ctx, target, httpsURL)
 	callback2, _ := e.oobManager.CheckCallback(id2)
 
 	validation["https_allowed"] = (callback2 != nil)

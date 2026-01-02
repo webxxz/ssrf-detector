@@ -192,13 +192,11 @@ func (c *FalsePositiveChecker) checkNotClientSide(finding *core.Finding) error {
 	if finding.Type == core.VulnTypeOpenRedirect {
 		// Open redirect is expected to be client-side, so this is OK
 		// But check if it's being misclassified as SSRF
-		hasServerSideEvidence := false
 
 		for _, ev := range finding.Evidence {
 			if ev.Type() == core.EvidenceOOBCallback {
 				if oobEv, ok := ev.(*core.OOBCallbackEvidence); ok {
 					if oobEv.Callback.IsTargetInfrastructure {
-						hasServerSideEvidence = true
 					}
 				}
 			}

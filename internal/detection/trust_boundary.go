@@ -97,10 +97,10 @@ func (e *TrustBoundaryEngine) Execute(ctx context.Context, target *core.Target, 
 func (e *TrustBoundaryEngine) detectValidationLayer(ctx context.Context, target *core.Target, state *core.ScanState) (core.ValidationLayer, error) {
 	// Test 1: String-based validation detection
 	// Send invalid URL format that wouldn't parse
-	identifier1, _ := e.oobManager.GenerateIdentifier(target, "validation-string")
+	_, _ = e.oobManager.GenerateIdentifier(target, "validation-string")
 	invalidURL := "not-a-valid-url-at-all-xyz123"
 
-	resp1, timing1, err := e.sendTestWithTiming(ctx, target, invalidURL)
+	resp1, timing1, _ := e.sendTestWithTiming(ctx, target, invalidURL)
 
 	// If rejected immediately (< 50ms), likely string-based
 	if timing1 != nil {
@@ -115,7 +115,7 @@ func (e *TrustBoundaryEngine) detectValidationLayer(ctx context.Context, target 
 	identifier2, _ := e.oobManager.GenerateIdentifier(target, "validation-dns")
 	nonexistentURL := fmt.Sprintf("http://nonexistent-domain-%s.invalid/test", identifier2)
 
-	resp2, timing2, err := e.sendTestWithTiming(ctx, target, nonexistentURL)
+	resp2, timing2, _ := e.sendTestWithTiming(ctx, target, nonexistentURL)
 
 	if timing2 != nil {
 		responseTime := timing2.End.Sub(timing2.Start)
@@ -137,7 +137,7 @@ func (e *TrustBoundaryEngine) detectValidationLayer(ctx context.Context, target 
 	identifier3, _ := e.oobManager.GenerateIdentifier(target, "validation-ip")
 	oobURL, _ := e.oobManager.BuildURL(identifier3, "/validation-test")
 
-	resp3, timing3, err := e.sendTestWithTiming(ctx, target, oobURL)
+	_, timing3, _ := e.sendTestWithTiming(ctx, target, oobURL)
 
 	// Wait for callback
 	oobCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -167,13 +167,13 @@ func (e *TrustBoundaryEngine) testDNSResolutionTrust(ctx context.Context, target
 	oobURL, _ := e.oobManager.BuildURL(identifier, "/dns-trust-test")
 
 	// First request
-	resp1, timing1, _ := e.sendTestWithTiming(ctx, target, oobURL)
+	_, timing1, _ := e.sendTestWithTiming(ctx, target, oobURL)
 
 	// Check for OOB callback
 	oobCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	callback, err := e.oobManager.WaitForCallback(oobCtx, identifier, 5*time.Second)
+	callback, _ := e.oobManager.WaitForCallback(oobCtx, identifier, 5*time.Second)
 
 	if callback != nil {
 		// DNS was resolved and request was made

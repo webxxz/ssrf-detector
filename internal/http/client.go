@@ -65,7 +65,7 @@ func NewClient(config *core.Config) *Client {
 
 // Do executes an HTTP request
 func (c *Client) Do(ctx context.Context, req *http.Request) (*core.Response, error) {
-	resp, timing, err := c.DoWithTiming(ctx, req)
+	resp, _, err := c.DoWithTiming(ctx, req)
 	return resp, err
 }
 

@@ -176,7 +176,7 @@ func (e *FetchAnalysisEngine) mapHostnameValidation(ctx context.Context, target 
 	identifier1, _ := e.oobManager.GenerateIdentifier(target, "hostname-valid")
 	oobURL1, _ := e.oobManager.BuildURL(identifier1, "/valid")
 
-	resp1, _ := e.sendTestRequest(ctx, target, oobURL1)
+	_, _ = e.sendTestRequest(ctx, target, oobURL1)
 	callback1, _ := e.oobManager.CheckCallback(identifier1)
 
 	validation["scanner_domain_allowed"] = (callback1 != nil)
@@ -216,7 +216,7 @@ func (e *FetchAnalysisEngine) discoverPortRestrictions(ctx context.Context, targ
 
 	for _, port := range testPorts {
 		identifier, _ := e.oobManager.GenerateIdentifier(target, fmt.Sprintf("port-%d", port))
-		oobURL, _ := e.oobManager.BuildURL(identifier, fmt.Sprintf("/port-%d", port))
+		_, _ = e.oobManager.BuildURL(identifier, fmt.Sprintf("/port-%d", port))
 
 		// Add port to URL
 		testURL := fmt.Sprintf("http://%s.%s:%d/test", identifier, e.config.OOBDomain, port)

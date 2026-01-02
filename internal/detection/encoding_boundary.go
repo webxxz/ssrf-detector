@@ -103,7 +103,6 @@ func (e *EncodingBoundaryEngine) mapDecodeStages(ctx context.Context, target *co
 	}
 
 	// Baseline: path should be "/marker-A"
-	baselinePath := callback1.Path
 
 	// Test 2: Single encoding (%41 = 'A')
 	id2, _ := e.oobManager.GenerateIdentifier(target, "enc-1")
@@ -194,7 +193,7 @@ func (e *EncodingBoundaryEngine) detectValidationStage(ctx context.Context, targ
 	normalURL, _ := e.oobManager.BuildURL(id1, "/validation-test")
 
 	// Test normal (should work)
-	resp1, timing1, _ := e.sendTestWithTiming(ctx, target, normalURL)
+	_, _, _ = e.sendTestWithTiming(ctx, target, normalURL)
 	callback1, _ := e.oobManager.CheckCallback(id1)
 
 	if callback1 == nil {

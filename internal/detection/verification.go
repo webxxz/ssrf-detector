@@ -60,7 +60,6 @@ func (e *VerificationEngine) Execute(ctx context.Context, target *core.Target, s
 			InputURL:      "test-url",
 			NoOOBCallback: true,
 			NoTimingDiff:  true,
-			timestamp:     time.Now(),
 		}
 		result.Evidence = append(result.Evidence, evidence)
 		state.Evidence = append(state.Evidence, evidence)
