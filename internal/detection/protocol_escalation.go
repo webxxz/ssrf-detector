@@ -209,10 +209,6 @@ type ProtocolEscalationEvidence struct {
 	timestamp    time.Time
 }
 
-func (e *ProtocolEscalationEvidence) Type() core.EvidenceType {
-	return core.EvidenceProtocolEscalation
-}
-
 func (e *ProtocolEscalationEvidence) Score() int {
 	if e.Supported {
 		return 40 // Significant if actually supported
