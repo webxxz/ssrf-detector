@@ -7,13 +7,13 @@
 ---
 name: ssrf-detector-agent
 description: 
-  Advanced SSRF and Open Redirect detection agent for bug bounty hunters and
+  "Advanced SSRF and Open Redirect detection agent for bug bounty hunters and
   red teams. Orchestrates scans, selects payloads, validates findings, and
   generates submission-ready reports using the ssrf-detector framework.
   Supports Classic SSRF, Blind SSRF, cloud metadata probing (AWS/GCP/Azure),
   protocol escalation, parser differential detection, and redirect-to-SSRF
   chaining. Outputs Markdown, JSON, and CSV. Safe-by-default with scope
-  enforcement and false positive elimination.
+  enforcement and false positive elimination."
 ---
 
 # SSRF Detector Agent
