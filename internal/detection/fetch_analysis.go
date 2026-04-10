@@ -3,9 +3,11 @@ package detection
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"ssrf-detector/internal/core"
+	"ssrf-detector/internal/payloads"
 )
 
 // FetchAnalysisEngine characterizes how the application fetches URLs
@@ -91,6 +93,14 @@ func (e *FetchAnalysisEngine) Execute(ctx context.Context, target *core.Target, 
 	} else {
 		state.ClientFingerprint = fingerprint
 		result.Metadata["client_fingerprint"] = fingerprint
+	}
+
+	// Step 5: Context-aware payload generation
+	envCtx := e.buildEnvironmentContext(state)
+	dynamicPayloads := payloads.GeneratePayloads(envCtx)
+	result.Metadata["dynamic_payload_count"] = len(dynamicPayloads)
+	if len(dynamicPayloads) > 0 {
+		result.Metadata["dynamic_payload_observations"] = e.executeContextAwarePayloads(ctx, target, dynamicPayloads)
 	}
 
 	result.Success = true
@@ -339,4 +349,61 @@ func inferProtocolSupport(library string) []string {
 	default:
 		return []string{"http", "https"}
 	}
+}
+
+func (e *FetchAnalysisEngine) buildEnvironmentContext(state *core.ScanState) *payloads.EnvironmentContext {
+	ctx := &payloads.EnvironmentContext{
+		CloudProvider: "none",
+	}
+
+	if fpRaw, ok := state.Metadata["context_fingerprint"].(map[string]interface{}); ok {
+		if backendHints, ok := fpRaw["backend_hints"].([]string); ok && len(backendHints) > 0 {
+			ctx.BackendLang = backendHints[0]
+		}
+		if edgeHints, ok := fpRaw["edge_hints"].(map[string]bool); ok {
+			ctx.WAFDetected = edgeHints["cdn_or_waf"]
+			ctx.ProxyDetected = edgeHints["reverse_proxy"]
+		}
+		if cloudHints, ok := fpRaw["cloud_hints"].([]string); ok && len(cloudHints) > 0 {
+			ctx.CloudProvider = strings.ToLower(cloudHints[0])
+		}
+	}
+
+	if state.ClientFingerprint != nil && ctx.BackendLang == "" {
+		if state.ClientFingerprint.Library == "Java" {
+			ctx.BackendLang = "java"
+		}
+	}
+
+	return ctx
+}
+
+func (e *FetchAnalysisEngine) executeContextAwarePayloads(ctx context.Context, target *core.Target, generated []payloads.Payload) map[string]bool {
+	maxTests := 5
+	if len(generated) < maxTests {
+		maxTests = len(generated)
+	}
+	observation := make(map[string]bool, maxTests)
+
+	for i := 0; i < maxTests; i++ {
+		payload := generated[i]
+		value := payload.Value
+
+		if strings.Contains(value, "{{OOB}}") {
+			identifier, err := e.oobManager.GenerateIdentifier(target, "ctx-"+payload.Name)
+			if err != nil {
+				continue
+			}
+			value = strings.ReplaceAll(value, "{{OOB}}", identifier+"."+e.config.OOBDomain)
+			_, _ = e.sendTestRequest(ctx, target, value)
+			callback, _ := e.oobManager.CheckCallback(identifier)
+			observation[payload.Name] = callback != nil
+			continue
+		}
+
+		resp, err := e.sendTestRequest(ctx, target, value)
+		observation[payload.Name] = err == nil && resp != nil && resp.StatusCode < 500
+	}
+
+	return observation
 }

@@ -3,9 +3,12 @@ package scoring
 
 import (
 	"fmt"
+	"math"
 	"time"
 
+	"ssrf-detector/internal/chain"
 	"ssrf-detector/internal/core"
+	"ssrf-detector/internal/detection"
 )
 
 // Scorer calculates confidence scores and severity levels
@@ -234,6 +237,16 @@ func (s *Scorer) BuildFinding(state *core.ScanState) (*core.Finding, error) {
 	// Calculate confidence
 	score, confidence := s.CalculateConfidence(state.Evidence)
 
+	// Blind-signal fusion score
+	fusion := detection.FuseBlindSignals(detection.BuildBlindSignals(state))
+	if fusion.Score > 0 {
+		score = int(math.Round((0.6 * float64(score)) + (0.4 * fusion.Score * 100)))
+		if score > 100 {
+			score = 100
+		}
+		confidence = confidenceFromScore(score)
+	}
+
 	// Reject if confidence is too low
 	if confidence == core.ConfidenceNone {
 		return nil, fmt.Errorf("confidence too low (score: %d)", score)
@@ -247,14 +260,15 @@ func (s *Scorer) BuildFinding(state *core.ScanState) (*core.Finding, error) {
 
 	// Build finding
 	finding := &core.Finding{
-		ID:              generateFindingID(),
-		Type:            vulnType,
-		Severity:        severity,
-		Confidence:      confidence,
-		ConfidenceScore: score,
-		Target:          state.Target,
-		Evidence:        state.Evidence,
-		DetectedAt:      time.Now(),
+		ID:               generateFindingID(),
+		Type:             vulnType,
+		Severity:         severity,
+		Confidence:       confidence,
+		ConfidenceScore:  score,
+		Target:           state.Target,
+		Evidence:         state.Evidence,
+		DetectedAt:       time.Now(),
+		BlindFusionScore: fusion.Score,
 	}
 
 	// Extract details from evidence
@@ -274,6 +288,20 @@ func (s *Scorer) BuildFinding(state *core.ScanState) (*core.Finding, error) {
 
 	// Phase where detected
 	finding.PhaseDetected = s.findDetectionPhase(state)
+
+	// Chain reasoning and score uplift
+	chains := chain.ReasonChains(finding)
+	finding.AttackChains = chains
+	finding.CVSS = highestChainCVSS(chains)
+	if finding.CVSS >= 9.0 {
+		score += 15
+		if score > 100 {
+			score = 100
+		}
+	}
+	finding.ConfidenceScore = score
+	finding.Confidence = confidenceFromScore(score)
+	finding.ReportReady = score >= 50
 
 	return finding, nil
 }
@@ -408,6 +436,29 @@ func (s *Scorer) findDetectionPhase(state *core.ScanState) core.DetectionPhase {
 // generateFindingID generates a unique finding ID
 func generateFindingID() string {
 	return fmt.Sprintf("SSRF-%d", time.Now().Unix())
+}
+
+func highestChainCVSS(chains []core.AttackChain) float64 {
+	maxCVSS := 0.0
+	for _, chain := range chains {
+		if chain.CVSS > maxCVSS {
+			maxCVSS = chain.CVSS
+		}
+	}
+	return maxCVSS
+}
+
+func confidenceFromScore(score int) core.ConfidenceLevel {
+	switch {
+	case score >= 80:
+		return core.ConfidenceHigh
+	case score >= 50:
+		return core.ConfidenceMedium
+	case score >= 20:
+		return core.ConfidenceLow
+	default:
+		return core.ConfidenceNone
+	}
 }
 
 // Additional evidence type for protocol escalation
