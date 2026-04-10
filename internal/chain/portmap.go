@@ -25,10 +25,10 @@ type PortExposure struct {
 }
 
 type NetworkMap struct {
-	GeneratedAt      time.Time              `json:"generated_at"`
-	Reachability     map[string][]int       `json:"reachability"`
-	Exposures        []PortExposure         `json:"exposures"`
-	CriticalServices []PortExposure         `json:"critical_services"`
+	GeneratedAt      time.Time        `json:"generated_at"`
+	Reachability     map[string][]int `json:"reachability"`
+	Exposures        []PortExposure   `json:"exposures"`
+	CriticalServices []PortExposure   `json:"critical_services"`
 }
 
 // MapInternalNetwork builds an internal reachability map from an SSRF probe oracle.
