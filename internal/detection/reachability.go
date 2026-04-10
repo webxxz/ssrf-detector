@@ -335,7 +335,6 @@ func inferBackendHints(resp *core.Response) []string {
 	hints := make([]string, 0)
 	cookies := strings.ToLower(strings.Join(resp.Header.Values("Set-Cookie"), ";"))
 	server := strings.ToLower(resp.Header.Get("Server"))
-	body := normalizeSample(resp.BodyBytes, 4096)
 
 	if strings.Contains(cookies, "jsessionid") || strings.Contains(server, "tomcat") {
 		hints = append(hints, "java")
@@ -346,11 +345,17 @@ func inferBackendHints(resp *core.Response) []string {
 	if strings.Contains(cookies, "asp.net_sessionid") || strings.Contains(server, "asp.net") {
 		hints = append(hints, "dotnet")
 	}
-	if strings.Contains(server, "express") || strings.Contains(body, "express") {
+	if strings.Contains(server, "express") {
 		hints = append(hints, "nodejs")
 	}
 	if strings.Contains(server, "gunicorn") || strings.Contains(server, "uwsgi") {
 		hints = append(hints, "python")
+	}
+	if len(hints) == 0 {
+		body := normalizeSample(resp.BodyBytes, 4096)
+		if strings.Contains(body, "express") {
+			hints = append(hints, "nodejs")
+		}
 	}
 
 	return dedupeStrings(hints)
@@ -398,15 +403,23 @@ func inferCloudHints(resp *core.Response) []string {
 	}
 
 	hints := make([]string, 0)
-	joined := strings.ToLower(resp.Header.Get("Server") + " " + strings.Join(resp.Header.Values("Set-Cookie"), " ") + " " + normalizeSample(resp.BodyBytes, 4096))
+	server := strings.ToLower(resp.Header.Get("Server"))
+	cookies := strings.ToLower(strings.Join(resp.Header.Values("Set-Cookie"), " "))
+	body := normalizeSample(resp.BodyBytes, 4096)
 
-	if strings.Contains(joined, "x-amz") || strings.Contains(joined, "amazon") || strings.Contains(joined, "aws") {
+	if strings.Contains(server, "x-amz") || strings.Contains(cookies, "x-amz") || strings.Contains(body, "x-amz") ||
+		strings.Contains(server, "amazon") || strings.Contains(cookies, "amazon") || strings.Contains(body, "amazon") ||
+		strings.Contains(server, "aws") || strings.Contains(cookies, "aws") || strings.Contains(body, "aws") {
 		hints = append(hints, "aws")
 	}
-	if strings.Contains(joined, "x-goog") || strings.Contains(joined, "gcp") || strings.Contains(joined, "google cloud") {
+	if strings.Contains(server, "x-goog") || strings.Contains(cookies, "x-goog") || strings.Contains(body, "x-goog") ||
+		strings.Contains(server, "gcp") || strings.Contains(cookies, "gcp") || strings.Contains(body, "gcp") ||
+		strings.Contains(server, "google cloud") || strings.Contains(cookies, "google cloud") || strings.Contains(body, "google cloud") {
 		hints = append(hints, "gcp")
 	}
-	if strings.Contains(joined, "x-ms") || strings.Contains(joined, "azure") || strings.Contains(joined, "microsoft") {
+	if strings.Contains(server, "x-ms") || strings.Contains(cookies, "x-ms") || strings.Contains(body, "x-ms") ||
+		strings.Contains(server, "azure") || strings.Contains(cookies, "azure") || strings.Contains(body, "azure") ||
+		strings.Contains(server, "microsoft") || strings.Contains(cookies, "microsoft") || strings.Contains(body, "microsoft") {
 		hints = append(hints, "azure")
 	}
 
