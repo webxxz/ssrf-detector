@@ -2,6 +2,8 @@ package chain
 
 import "time"
 
+const FilteredPortLatencyThreshold = 1500 * time.Millisecond
+
 var InternalTargets = []string{
 	"127.0.0.1", "10.0.0.1", "192.168.1.1",
 	"172.16.0.1", "169.254.169.254",
@@ -48,7 +50,7 @@ func MapInternalNetwork(ssrfFunc ProbeFunc) *NetworkMap {
 			state := "closed"
 			if err == nil {
 				state = "open"
-			} else if latency > 1500*time.Millisecond {
+			} else if latency > FilteredPortLatencyThreshold {
 				state = "filtered"
 			}
 			ex := PortExposure{

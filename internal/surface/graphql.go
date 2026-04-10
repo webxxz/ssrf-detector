@@ -55,6 +55,13 @@ func ExtractGraphQLSSRFPoints(schema []byte) []core.InjectionPoint {
 }
 
 func looksLikeGraphQLStringType(v interface{}) bool {
+	return looksLikeGraphQLStringTypeDepth(v, 0)
+}
+
+func looksLikeGraphQLStringTypeDepth(v interface{}, depth int) bool {
+	if depth > 32 {
+		return false
+	}
 	m, ok := v.(map[string]interface{})
 	if !ok {
 		return false
@@ -67,5 +74,5 @@ func looksLikeGraphQLStringType(v interface{}) bool {
 			return true
 		}
 	}
-	return looksLikeGraphQLStringType(m["ofType"])
+	return looksLikeGraphQLStringTypeDepth(m["ofType"], depth+1)
 }

@@ -23,7 +23,8 @@ type OOBServer struct {
 	DNSPort   int
 	Callbacks map[string]*CallbackEvent
 
-	mu sync.RWMutex
+	waiters map[string][]chan *CallbackEvent
+	mu      sync.RWMutex
 }
 
 // NewSelfHostedOOBServer creates a lightweight self-hosted OOB callback tracker.
@@ -33,6 +34,7 @@ func NewSelfHostedOOBServer(domain string, httpPort, dnsPort int) *OOBServer {
 		HTTPPort:  httpPort,
 		DNSPort:   dnsPort,
 		Callbacks: make(map[string]*CallbackEvent),
+		waiters:   make(map[string][]chan *CallbackEvent),
 	}
 }
 
@@ -47,26 +49,50 @@ func (s *OOBServer) RegisterCallback(uuid string, event *CallbackEvent) {
 		return
 	}
 	s.mu.Lock()
+	waiters := s.waiters[uuid]
 	defer s.mu.Unlock()
 	s.Callbacks[uuid] = event
+	for _, ch := range waiters {
+		select {
+		case ch <- event:
+		default:
+		}
+	}
+	delete(s.waiters, uuid)
 }
 
 // WaitForCallback polls for a callback until timeout.
 func (s *OOBServer) WaitForCallback(uuid string, timeout time.Duration) (*CallbackEvent, bool) {
-	deadline := time.Now().Add(timeout)
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	s.mu.RLock()
+	ev, ok := s.Callbacks[uuid]
+	s.mu.RUnlock()
+	if ok {
+		return ev, true
+	}
 
-	for {
-		s.mu.RLock()
-		ev, ok := s.Callbacks[uuid]
-		s.mu.RUnlock()
-		if ok {
-			return ev, true
+	ch := make(chan *CallbackEvent, 1)
+	s.mu.Lock()
+	s.waiters[uuid] = append(s.waiters[uuid], ch)
+	s.mu.Unlock()
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case event := <-ch:
+		return event, true
+	case <-timer.C:
+		s.mu.Lock()
+		waiters := s.waiters[uuid]
+		for i := range waiters {
+			if waiters[i] == ch {
+				s.waiters[uuid] = append(waiters[:i], waiters[i+1:]...)
+				break
+			}
 		}
-		if time.Now().After(deadline) {
-			return nil, false
+		if len(s.waiters[uuid]) == 0 {
+			delete(s.waiters, uuid)
 		}
-		<-ticker.C
+		s.mu.Unlock()
+		return nil, false
 	}
 }

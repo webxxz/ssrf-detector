@@ -33,7 +33,10 @@ func FingerprintWAF(resp *http.Response) WAFVendor {
 
 	server := strings.ToLower(resp.Header.Get("Server"))
 	if strings.Contains(server, "apache") && resp.StatusCode == http.StatusForbidden && resp.Body != nil {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return WAFNone
+		}
 		resp.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
 		body := strings.ToLower(string(bodyBytes))
 		if strings.Contains(body, "mod_security") || strings.Contains(body, "modsecurity") {
