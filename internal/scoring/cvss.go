@@ -152,13 +152,18 @@ func computeBaseScore(v CVSSVector) float64 {
 	pr := 0.0
 	switch v.S {
 	case "U":
-		pr = prWeightsU[v.PR]
+		var ok bool
+		pr, ok = prWeightsU[v.PR]
+		if !ok {
+			return 0
+		}
 	case "C":
-		pr = prWeightsC[v.PR]
+		var ok bool
+		pr, ok = prWeightsC[v.PR]
+		if !ok {
+			return 0
+		}
 	default:
-		return 0
-	}
-	if pr == 0 {
 		return 0
 	}
 

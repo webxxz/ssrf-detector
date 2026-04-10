@@ -44,6 +44,9 @@ func TestComputeCVSSBlindSSRFOnly(t *testing.T) {
 	if !strings.Contains(vector, "/S:U/") {
 		t.Fatalf("expected unchanged scope vector, got %s", vector)
 	}
+	if !strings.Contains(vector, "/C:N/") {
+		t.Fatalf("expected no confidentiality impact for blind-only finding, got %s", vector)
+	}
 }
 
 func TestComputeCVSSRCEChainFinding(t *testing.T) {
