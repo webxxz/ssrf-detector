@@ -58,7 +58,7 @@ docker run --rm ssrf-detector:latest --help
   -o hackerone-report.md
 ```
 
-### QNAP markdown report
+### Other markdown report
 
 ```bash
 ./build/ssrfdetect \
@@ -70,7 +70,7 @@ docker run --rm ssrf-detector:latest --help
   --allow-protocol-escalation \
   -f markdown \
   --platform qnap \
-  -o qnap-report.md
+  -o other-report.md
 ```
 
 ### Batch targets with auto discovery
