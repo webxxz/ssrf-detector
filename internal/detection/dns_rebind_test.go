@@ -70,7 +70,11 @@ func TestDetectRebindingNotDetectedWhenResponsesMatch(t *testing.T) {
 }
 
 func TestDetectRebindingInputValidation(t *testing.T) {
-	if DetectRebinding(nil, "https://example.com", "oob.example").Detected {
+	nilClientResult := DetectRebinding(nil, "https://example.com", "oob.example")
+	if nilClientResult == nil {
+		t.Fatal("expected non-nil result for nil client")
+	}
+	if nilClientResult.Detected {
 		t.Fatal("expected nil client to return non-detected result")
 	}
 	if DetectRebinding(http.DefaultClient, "", "oob.example").Detected {
