@@ -173,7 +173,7 @@ func computeBaseScore(v CVSSVector) float64 {
 	if v.S == "U" {
 		impact = 6.42 * iss
 	} else {
-		// CVSS v3.1 base metric formula for Scope Changed (Specification v3.1, Section 2).
+		// CVSS v3.1 base metric formula for Scope Changed (Specification v3.1, Section 2.2).
 		impact = 7.52*(iss-0.029) - 3.25*math.Pow(iss-0.02, 15)
 	}
 
