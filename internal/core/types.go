@@ -266,9 +266,10 @@ type Config struct {
 	DryRun           bool // Report what would be tested
 
 	// Output
-	Verbose      bool
-	ReportFormat string
-	OutputFile   string
+	Verbose        bool
+	ReportFormat   string
+	ReportPlatform string
+	OutputFile     string
 }
 
 // ScopeConfig defines testing boundaries
