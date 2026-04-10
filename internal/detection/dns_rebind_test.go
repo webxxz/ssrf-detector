@@ -21,6 +21,10 @@ func TestDetectRebindingWhenResponsesDiffer(t *testing.T) {
 			http.Error(w, "invalid injected url", http.StatusBadRequest)
 			return
 		}
+		if parsed.Scheme != "http" || parsed.Host == "" {
+			http.Error(w, "invalid injected probe shape", http.StatusBadRequest)
+			return
+		}
 		key := parsed.Host
 
 		mu.Lock()
