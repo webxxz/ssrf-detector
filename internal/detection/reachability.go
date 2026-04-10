@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"ssrf-detector/internal/core"
@@ -57,6 +58,17 @@ func (e *ReachabilityEngine) Execute(ctx context.Context, target *core.Target, s
 
 	state.Baseline = baseline
 	result.Metadata["baseline"] = baseline
+
+	// Step 1b: Contextual fingerprinting (stack/edge/cloud hints)
+	fingerprint, err := e.collectContextFingerprint(ctx, target)
+	if err != nil {
+		if e.config.Verbose {
+			fmt.Printf("[WARN] Context fingerprinting failed: %v\n", err)
+		}
+	} else {
+		result.Metadata["context_fingerprint"] = fingerprint
+		state.Metadata["context_fingerprint"] = fingerprint
+	}
 
 	// Step 2: Canary request (benign, non-existent parameter)
 	canaryResp, err := e.performCanaryRequest(ctx, target)
@@ -242,6 +254,25 @@ func (e *ReachabilityEngine) setInvalidValue(target *core.Target) *core.Target {
 	return errorTarget
 }
 
+func (e *ReachabilityEngine) collectContextFingerprint(ctx context.Context, target *core.Target) (map[string]interface{}, error) {
+	req, err := e.buildRequest(target, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := e.httpClient.Do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	fingerprint := map[string]interface{}{
+		"backend_hints": inferBackendHints(resp),
+		"edge_hints":    inferEdgeHints(resp),
+		"cloud_hints":   inferCloudHints(resp),
+	}
+	return fingerprint, nil
+}
+
 // Helper functions
 
 func calculateStats(samples []time.Duration) (mean time.Duration, stdDev time.Duration) {
@@ -294,6 +325,131 @@ func containsMiddle(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func inferBackendHints(resp *core.Response) []string {
+	if resp == nil {
+		return nil
+	}
+
+	hints := make([]string, 0)
+	cookies := strings.ToLower(strings.Join(resp.Header.Values("Set-Cookie"), ";"))
+	server := strings.ToLower(resp.Header.Get("Server"))
+
+	if strings.Contains(cookies, "jsessionid") || strings.Contains(server, "tomcat") {
+		hints = append(hints, "java")
+	}
+	if strings.Contains(cookies, "phpsessid") || strings.Contains(server, "php") {
+		hints = append(hints, "php")
+	}
+	if strings.Contains(cookies, "asp.net_sessionid") || strings.Contains(server, "asp.net") {
+		hints = append(hints, "dotnet")
+	}
+	if strings.Contains(server, "express") {
+		hints = append(hints, "nodejs")
+	}
+	if strings.Contains(server, "gunicorn") || strings.Contains(server, "uwsgi") {
+		hints = append(hints, "python")
+	}
+	if len(hints) == 0 {
+		body := normalizeSample(resp.BodyBytes, 4096)
+		if strings.Contains(body, "express") {
+			hints = append(hints, "nodejs")
+		}
+	}
+
+	return dedupeStrings(hints)
+}
+
+func inferEdgeHints(resp *core.Response) map[string]bool {
+	edge := map[string]bool{
+		"reverse_proxy": false,
+		"cdn_or_waf":    false,
+		"cloudflare":    false,
+		"akamai":        false,
+		"fastly":        false,
+	}
+	if resp == nil {
+		return edge
+	}
+
+	server := strings.ToLower(resp.Header.Get("Server"))
+	via := strings.ToLower(resp.Header.Get("Via"))
+	xcache := strings.ToLower(resp.Header.Get("X-Cache"))
+	poweredBy := strings.ToLower(resp.Header.Get("X-Powered-By"))
+
+	if via != "" || xcache != "" || strings.Contains(server, "nginx") || strings.Contains(server, "envoy") {
+		edge["reverse_proxy"] = true
+	}
+	if strings.Contains(server, "cloudflare") || strings.Contains(via, "cloudflare") {
+		edge["cdn_or_waf"] = true
+		edge["cloudflare"] = true
+	}
+	if strings.Contains(server, "akamai") || strings.Contains(via, "akamai") {
+		edge["cdn_or_waf"] = true
+		edge["akamai"] = true
+	}
+	if strings.Contains(server, "fastly") || strings.Contains(via, "fastly") || strings.Contains(poweredBy, "fastly") {
+		edge["cdn_or_waf"] = true
+		edge["fastly"] = true
+	}
+
+	return edge
+}
+
+func inferCloudHints(resp *core.Response) []string {
+	if resp == nil {
+		return nil
+	}
+
+	hints := make([]string, 0)
+	server := strings.ToLower(resp.Header.Get("Server"))
+	cookies := strings.ToLower(strings.Join(resp.Header.Values("Set-Cookie"), " "))
+	body := normalizeSample(resp.BodyBytes, 4096)
+
+	if strings.Contains(server, "x-amz") || strings.Contains(cookies, "x-amz") || strings.Contains(body, "x-amz") ||
+		strings.Contains(server, "amazon") || strings.Contains(cookies, "amazon") || strings.Contains(body, "amazon") ||
+		strings.Contains(server, "aws") || strings.Contains(cookies, "aws") || strings.Contains(body, "aws") {
+		hints = append(hints, "aws")
+	}
+	if strings.Contains(server, "x-goog") || strings.Contains(cookies, "x-goog") || strings.Contains(body, "x-goog") ||
+		strings.Contains(server, "gcp") || strings.Contains(cookies, "gcp") || strings.Contains(body, "gcp") ||
+		strings.Contains(server, "google cloud") || strings.Contains(cookies, "google cloud") || strings.Contains(body, "google cloud") {
+		hints = append(hints, "gcp")
+	}
+	if strings.Contains(server, "x-ms") || strings.Contains(cookies, "x-ms") || strings.Contains(body, "x-ms") ||
+		strings.Contains(server, "azure") || strings.Contains(cookies, "azure") || strings.Contains(body, "azure") ||
+		strings.Contains(server, "microsoft") || strings.Contains(cookies, "microsoft") || strings.Contains(body, "microsoft") {
+		hints = append(hints, "azure")
+	}
+
+	return dedupeStrings(hints)
+}
+
+func dedupeStrings(values []string) []string {
+	if len(values) == 0 {
+		return values
+	}
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+	for _, v := range values {
+		if _, exists := seen[v]; exists {
+			continue
+		}
+		seen[v] = struct{}{}
+		result = append(result, v)
+	}
+	return result
+}
+
+func normalizeSample(body []byte, max int) string {
+	if len(body) == 0 {
+		return ""
+	}
+	if max > 0 && len(body) > max {
+		body = body[:max]
+	}
+	return strings.ToLower(string(body))
 }
 
 // ErrorMessageEvidence captures error pattern evidence

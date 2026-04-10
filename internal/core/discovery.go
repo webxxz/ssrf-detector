@@ -8,6 +8,37 @@ import (
 	"strings"
 )
 
+var ssrfLikelyParamNames = map[string]bool{
+	"url":         true,
+	"uri":         true,
+	"path":        true,
+	"dest":        true,
+	"destination": true,
+	"redirect":    true,
+	"return":      true,
+	"next":        true,
+	"target":      true,
+	"src":         true,
+	"source":      true,
+	"callback":    true,
+	"fetch":       true,
+	"load":        true,
+	"file":        true,
+	"document":    true,
+	"image":       true,
+	"ref":         true,
+	"proxy":       true,
+	"forward":     true,
+	"out":         true,
+	"view":        true,
+	"navigate":    true,
+	"goto":        true,
+	"link":        true,
+	"domain":      true,
+	"host":        true,
+	"site":        true,
+}
+
 // DiscoverInjectionPoints finds likely URL injection points from target metadata.
 func DiscoverInjectionPoints(target *Target) []InjectionPoint {
 	if target == nil {
@@ -74,7 +105,7 @@ func discoverHeaderPoints(headers http.Header, addPoint func(InjectionPoint)) {
 		}
 		lower := strings.ToLower(key)
 		value := values[0]
-		if interesting[lower] || looksLikeURL(value) {
+		if interesting[lower] || looksLikeURL(value) || isLikelySSRFTarget(key, value) {
 			addPoint(InjectionPoint{
 				Type:    InjectionHeader,
 				Name:    key,
@@ -96,7 +127,7 @@ func discoverBodyPoints(target *Target, addPoint func(InjectionPoint)) {
 		var obj map[string]interface{}
 		if err := json.Unmarshal(target.Body, &obj); err == nil {
 			for key, value := range obj {
-				if v, ok := value.(string); ok && looksLikeURL(v) {
+				if v, ok := value.(string); ok && isLikelySSRFTarget(key, v) {
 					addPoint(InjectionPoint{Type: InjectionJSON, Name: key, Context: ContextJSON})
 				}
 			}
@@ -122,4 +153,23 @@ func looksLikeURL(value string) bool {
 	return strings.HasPrefix(value, "http://") ||
 		strings.HasPrefix(value, "https://") ||
 		strings.HasPrefix(value, "ftp://")
+}
+
+func isLikelySSRFTarget(name, value string) bool {
+	if ssrfLikelyParamNames[normalizeToken(name)] {
+		return true
+	}
+	return looksLikeURL(value)
+}
+
+func normalizeToken(s string) string {
+	s = strings.TrimSpace(strings.ToLower(s))
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
