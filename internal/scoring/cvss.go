@@ -35,7 +35,7 @@ type ScoredFinding struct {
 	CredentialTheftChain bool
 	BlindOnly            bool
 
-	RCEChain             bool
+	RCEChain              bool
 	InternalWritePossible bool
 
 	DoSChainDetected bool
