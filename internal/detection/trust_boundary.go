@@ -245,10 +245,10 @@ func (e *TrustBoundaryEngine) testHeaderTrust(ctx context.Context, target *core.
 	oobCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	callbackOrNil, _ := e.oobManager.WaitForCallback(oobCtx, identifier, 3*time.Second)
+	callback, _ := e.oobManager.WaitForCallback(oobCtx, identifier, 3*time.Second)
 
 	// If callback received, header value was used in backend request
-	return callbackOrNil != nil
+	return callback != nil
 }
 
 // Helper: send test request with timing
