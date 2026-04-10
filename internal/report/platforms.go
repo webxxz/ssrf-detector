@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"ssrf-detector/internal/core"
+	"ssrf-detector/internal/scoring"
 )
 
 type Platform string
@@ -71,19 +72,23 @@ func (r *PlatformMarkdownReporter) Generate(findings []*core.Finding, state *cor
 }
 
 func renderHackerOne(f *core.Finding) string {
-	return fmt.Sprintf("## Impact\n%s\n\n## Steps\n%s\n\n## Supporting Material\n- CWE-918\n- CVSS: %.1f\n", f.Impact, proofOrPlaceholder(f), f.CVSS)
+	score, vector := scoring.ComputeCVSS(&scoring.ScoredFinding{Finding: f})
+	return fmt.Sprintf("## Impact\n%s\n\n## Steps\n%s\n\n## Supporting Material\n- CWE-918\n- CVSS: %.1f\n- CVSS Vector: %s\n", f.Impact, proofOrPlaceholder(f), score, vector)
 }
 
 func renderBugcrowd(f *core.Finding) string {
-	return fmt.Sprintf("## Bug URL\n%s\n\n## Vulnerability Details\nType: %s\nCWE: CWE-918\nCVSS: %.1f\n\n## Reproduction Steps\n%s\n", targetOrPlaceholder(f), f.Type, f.CVSS, proofOrPlaceholder(f))
+	score, vector := scoring.ComputeCVSS(&scoring.ScoredFinding{Finding: f})
+	return fmt.Sprintf("## Bug URL\n%s\n\n## Vulnerability Details\nType: %s\nCWE: CWE-918\nCVSS: %.1f\nCVSS Vector: %s\n\n## Reproduction Steps\n%s\n", targetOrPlaceholder(f), f.Type, score, vector, proofOrPlaceholder(f))
 }
 
 func renderIntigriti(f *core.Finding) string {
-	return fmt.Sprintf("## Summary\n%s\n\n## Technical Details\n- Type: %s\n- Severity: %s\n- CVSS: %.1f\n\n## Proof of Concept\n%s\n", f.Impact, f.Type, f.Severity, f.CVSS, proofOrPlaceholder(f))
+	score, vector := scoring.ComputeCVSS(&scoring.ScoredFinding{Finding: f})
+	return fmt.Sprintf("## Summary\n%s\n\n## Technical Details\n- Type: %s\n- Severity: %s\n- CVSS: %.1f\n- CVSS Vector: %s\n\n## Proof of Concept\n%s\n", f.Impact, f.Type, f.Severity, score, vector, proofOrPlaceholder(f))
 }
 
 func renderQNAP(f *core.Finding) string {
-	return fmt.Sprintf("## QNAP Security Bounty Submission\n- Affected Component: %s\n- Firmware Version: unknown\n- CWE: CWE-918\n- CVSS: %.1f\n\n## Impact\n%s\n\n## Steps to Reproduce\n%s\n\n## CVE Request\nPlease evaluate for CVE assignment.\n", f.Type, f.CVSS, f.Impact, proofOrPlaceholder(f))
+	score, vector := scoring.ComputeCVSS(&scoring.ScoredFinding{Finding: f})
+	return fmt.Sprintf("## QNAP Security Bounty Submission\n- Affected Component: %s\n- Firmware Version: unknown\n- CWE: CWE-918\n- CVSS: %.1f\n- CVSS Vector: %s\n\n## Impact\n%s\n\n## Steps to Reproduce\n%s\n\n## CVE Request\nPlease evaluate for CVE assignment.\n", f.Type, score, vector, f.Impact, proofOrPlaceholder(f))
 }
 
 func targetOrPlaceholder(f *core.Finding) string {
