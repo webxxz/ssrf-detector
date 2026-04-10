@@ -3,7 +3,6 @@ package detection
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"ssrf-detector/internal/core"
@@ -232,13 +231,9 @@ func (e *TrustBoundaryEngine) testHeaderTrust(ctx context.Context, target *core.
 	testTarget.Headers = target.Headers.Clone()
 	testTarget.Headers.Set(headerName, oobDomain)
 
-	req, err := http.NewRequest(target.Method, target.URL.String(), nil)
+	req, err := buildRequestFromTarget(&testTarget)
 	if err != nil {
 		return false
-	}
-
-	for k, v := range testTarget.Headers {
-		req.Header[k] = v
 	}
 
 	// Send request
@@ -256,21 +251,14 @@ func (e *TrustBoundaryEngine) testHeaderTrust(ctx context.Context, target *core.
 
 // Helper: send test request with timing
 func (e *TrustBoundaryEngine) sendTestWithTiming(ctx context.Context, target *core.Target, testURL string) (*core.Response, *core.RequestTiming, error) {
-	testTarget := *target
-	targetURL := *target.URL
-
-	q := targetURL.Query()
-	q.Set(target.InjectionPoint.Name, testURL)
-	targetURL.RawQuery = q.Encode()
-	testTarget.URL = &targetURL
-
-	req, err := http.NewRequest(target.Method, testTarget.URL.String(), nil)
+	testTarget, err := applyInjectionPayload(target, testURL)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	for k, v := range target.Headers {
-		req.Header[k] = v
+	req, err := buildRequestFromTarget(testTarget)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return e.httpClient.DoWithTiming(ctx, req)

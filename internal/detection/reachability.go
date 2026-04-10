@@ -204,14 +204,9 @@ func (e *ReachabilityEngine) analyzeErrorResponse(resp *core.Response) string {
 
 // buildRequest constructs an HTTP request
 func (e *ReachabilityEngine) buildRequest(target *core.Target, modifications map[string]string) (*http.Request, error) {
-	req, err := http.NewRequest(target.Method, target.URL.String(), nil)
+	req, err := buildRequestFromTarget(target)
 	if err != nil {
 		return nil, err
-	}
-
-	// Copy headers
-	for k, v := range target.Headers {
-		req.Header[k] = v
 	}
 
 	// Apply modifications if any
@@ -239,20 +234,12 @@ func (e *ReachabilityEngine) addCanaryParameter(target *core.Target) *core.Targe
 
 // setInvalidValue sets an invalid value for testing
 func (e *ReachabilityEngine) setInvalidValue(target *core.Target) *core.Target {
-	errorTarget := *target
-	errorURL := *target.URL
-
-	q := errorURL.Query()
-
-	// Set invalid value for the injection point
-	if target.InjectionPoint.Type == core.InjectionQuery {
-		q.Set(target.InjectionPoint.Name, "::INVALID_URL::")
+	errorTarget, err := applyInjectionPayload(target, "::INVALID_URL::")
+	if err != nil {
+		// Keep baseline behavior even if this injection type is unsupported.
+		return cloneTarget(target)
 	}
-
-	errorURL.RawQuery = q.Encode()
-	errorTarget.URL = &errorURL
-
-	return &errorTarget
+	return errorTarget
 }
 
 // Helper functions

@@ -3,7 +3,6 @@ package detection
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"ssrf-detector/internal/core"
@@ -141,21 +140,14 @@ func (e *FetchAnalysisEngine) testProtocol(ctx context.Context, target *core.Tar
 		testURL = scheme + oobURL[4:] // Replace "http" with scheme
 	}
 
-	// Send request
-	testTarget := *target
-	targetURL := *target.URL
-	q := targetURL.Query()
-	q.Set(target.InjectionPoint.Name, testURL)
-	targetURL.RawQuery = q.Encode()
-	testTarget.URL = &targetURL
-
-	req, err := http.NewRequest(target.Method, testTarget.URL.String(), nil)
+	testTarget, err := applyInjectionPayload(target, testURL)
 	if err != nil {
 		return false
 	}
 
-	for k, v := range target.Headers {
-		req.Header[k] = v
+	req, err := buildRequestFromTarget(testTarget)
+	if err != nil {
+		return false
 	}
 
 	_, err = e.httpClient.Do(ctx, req)
@@ -278,42 +270,28 @@ func (e *FetchAnalysisEngine) fingerprintHTTPClient(ctx context.Context, target 
 // Helper functions
 
 func (e *FetchAnalysisEngine) sendTestRequest(ctx context.Context, target *core.Target, testURL string) (*core.Response, error) {
-	testTarget := *target
-	targetURL := *target.URL
-
-	q := targetURL.Query()
-	q.Set(target.InjectionPoint.Name, testURL)
-	targetURL.RawQuery = q.Encode()
-	testTarget.URL = &targetURL
-
-	req, err := http.NewRequest(target.Method, testTarget.URL.String(), nil)
+	testTarget, err := applyInjectionPayload(target, testURL)
 	if err != nil {
 		return nil, err
 	}
 
-	for k, v := range target.Headers {
-		req.Header[k] = v
+	req, err := buildRequestFromTarget(testTarget)
+	if err != nil {
+		return nil, err
 	}
 
 	return e.httpClient.Do(ctx, req)
 }
 
 func (e *FetchAnalysisEngine) sendTestRequestWithTiming(ctx context.Context, target *core.Target, testURL string) (*core.Response, *core.RequestTiming, error) {
-	testTarget := *target
-	targetURL := *target.URL
-
-	q := targetURL.Query()
-	q.Set(target.InjectionPoint.Name, testURL)
-	targetURL.RawQuery = q.Encode()
-	testTarget.URL = &targetURL
-
-	req, err := http.NewRequest(target.Method, testTarget.URL.String(), nil)
+	testTarget, err := applyInjectionPayload(target, testURL)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	for k, v := range target.Headers {
-		req.Header[k] = v
+	req, err := buildRequestFromTarget(testTarget)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return e.httpClient.DoWithTiming(ctx, req)

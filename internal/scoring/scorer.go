@@ -22,7 +22,13 @@ func NewScorer(config *core.Config) *Scorer {
 
 // CalculateConfidence computes confidence score from evidence
 func (s *Scorer) CalculateConfidence(evidence []core.Evidence) (int, core.ConfidenceLevel) {
-	totalScore := 0
+	baseScore := 0
+	evidenceTypes := make(map[core.EvidenceType]bool)
+	hasOOB := false
+	hasTiming := false
+	hasResponseInclusion := false
+	hasInternal := false
+	hasCloud := false
 
 	for _, ev := range evidence {
 		score := ev.Score()
@@ -32,13 +38,48 @@ func (s *Scorer) CalculateConfidence(evidence []core.Evidence) (int, core.Confid
 			return 0, core.ConfidenceNone
 		}
 
-		totalScore += score
+		if score > 0 {
+			baseScore += score
+		}
+		evidenceTypes[ev.Type()] = true
+
+		switch ev.Type() {
+		case core.EvidenceOOBCallback:
+			hasOOB = true
+		case core.EvidenceTimingAnomaly:
+			hasTiming = true
+		case core.EvidenceResponseInclusion:
+			hasResponseInclusion = true
+		case core.EvidenceInternalAccess:
+			hasInternal = true
+		case core.EvidenceCloudMetadata:
+			hasCloud = true
+		}
+	}
+
+	correlationBonus := 0
+	if hasOOB && hasTiming {
+		correlationBonus += 10
+	}
+	if hasOOB && hasResponseInclusion {
+		correlationBonus += 12
+	}
+	if hasInternal || hasCloud {
+		correlationBonus += 15
+	}
+	if evidenceTypes[core.EvidenceParserDifferential] && evidenceTypes[core.EvidenceTimingAnomaly] {
+		correlationBonus += 8
+	}
+
+	totalScore := baseScore + correlationBonus
+	if totalScore > 100 {
+		totalScore = 100
 	}
 
 	// Determine confidence level
 	var level core.ConfidenceLevel
 	switch {
-	case totalScore >= 80:
+	case totalScore >= 80 && len(evidenceTypes) >= 2:
 		level = core.ConfidenceHigh
 	case totalScore >= 50:
 		level = core.ConfidenceMedium
