@@ -68,7 +68,7 @@ func (e *CapabilityEngine) Execute(ctx context.Context, target *core.Target, sta
 	oobCtx, oobCancel := context.WithTimeout(ctx, e.config.OOBTimeout)
 	defer oobCancel()
 
-	callback, err := e.oobManager.WaitForCallback(oobCtx, identifier, e.config.OOBTimeout)
+	callback, _ := e.oobManager.WaitForCallback(oobCtx, identifier, e.config.OOBTimeout)
 
 	// Analyze results
 	capability := e.analyzeCapability(testResp, callback, timing, state.Baseline)

@@ -94,7 +94,9 @@ func (e *EncodingBoundaryEngine) mapDecodeStages(ctx context.Context, target *co
 	id1, _ := e.oobManager.GenerateIdentifier(target, "enc-0")
 	url1, _ := e.oobManager.BuildURL(id1, "/marker-A")
 
-	e.sendTest(ctx, target, url1)
+	if _, err := e.sendTest(ctx, target, url1); err != nil {
+		return 0, fmt.Errorf("failed baseline decode stage request: %w", err)
+	}
 	callback1, _ := e.oobManager.CheckCallback(id1)
 
 	if callback1 == nil {
@@ -107,7 +109,9 @@ func (e *EncodingBoundaryEngine) mapDecodeStages(ctx context.Context, target *co
 	id2, _ := e.oobManager.GenerateIdentifier(target, "enc-1")
 	url2, _ := e.oobManager.BuildURL(id2, "/marker-%41")
 
-	e.sendTest(ctx, target, url2)
+	if _, err := e.sendTest(ctx, target, url2); err != nil {
+		return 0, fmt.Errorf("failed single-encoding decode stage request: %w", err)
+	}
 	time.Sleep(500 * time.Millisecond)
 	callback2, _ := e.oobManager.CheckCallback(id2)
 
@@ -119,7 +123,9 @@ func (e *EncodingBoundaryEngine) mapDecodeStages(ctx context.Context, target *co
 			id3, _ := e.oobManager.GenerateIdentifier(target, "enc-2")
 			url3, _ := e.oobManager.BuildURL(id3, "/marker-%2541")
 
-			e.sendTest(ctx, target, url3)
+			if _, err := e.sendTest(ctx, target, url3); err != nil {
+				return 0, fmt.Errorf("failed double-encoding decode stage request: %w", err)
+			}
 			time.Sleep(500 * time.Millisecond)
 			callback3, _ := e.oobManager.CheckCallback(id3)
 
@@ -157,7 +163,9 @@ func (e *EncodingBoundaryEngine) testEncodingDepth(ctx context.Context, target *
 	id1, _ := e.oobManager.GenerateIdentifier(target, "depth-1")
 	url1 := fmt.Sprintf("http://%s.%s/%s", id1, e.config.OOBDomain, singleEncoded)
 
-	e.sendTest(ctx, target, url1)
+	if _, err := e.sendTest(ctx, target, url1); err != nil {
+		return nil, fmt.Errorf("failed single-encoded depth request: %w", err)
+	}
 	time.Sleep(500 * time.Millisecond)
 	callback1, _ := e.oobManager.CheckCallback(id1)
 
@@ -169,7 +177,9 @@ func (e *EncodingBoundaryEngine) testEncodingDepth(ctx context.Context, target *
 	id2, _ := e.oobManager.GenerateIdentifier(target, "depth-2")
 	url2 := fmt.Sprintf("http://%s.%s/%s", id2, e.config.OOBDomain, doubleEncoded)
 
-	e.sendTest(ctx, target, url2)
+	if _, err := e.sendTest(ctx, target, url2); err != nil {
+		return nil, fmt.Errorf("failed double-encoded depth request: %w", err)
+	}
 	time.Sleep(500 * time.Millisecond)
 	callback2, _ := e.oobManager.CheckCallback(id2)
 

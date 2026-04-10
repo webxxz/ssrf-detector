@@ -32,7 +32,9 @@ func TestClientDo(t *testing.T) {
 	// Create test server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		if _, err := w.Write([]byte("test response")); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer ts.Close()
 
@@ -44,7 +46,7 @@ func TestClientDo(t *testing.T) {
 
 	client := NewClient(config)
 
-	req, err := http.NewRequest("GET", ts.URL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", ts.URL, nil)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -69,7 +71,9 @@ func TestClientDoWithTiming(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("timed response"))
+		if _, err := w.Write([]byte("timed response")); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer ts.Close()
 
@@ -81,7 +85,7 @@ func TestClientDoWithTiming(t *testing.T) {
 
 	client := NewClient(config)
 
-	req, err := http.NewRequest("GET", ts.URL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", ts.URL, nil)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -126,7 +130,9 @@ func TestClientRedirectHandling(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("final"))
+		if _, err := w.Write([]byte("final")); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer ts.Close()
 
@@ -140,7 +146,10 @@ func TestClientRedirectHandling(t *testing.T) {
 		}
 
 		client := NewClient(config)
-		req, _ := http.NewRequest("GET", ts.URL, nil)
+		req, err := http.NewRequestWithContext(context.Background(), "GET", ts.URL, nil)
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
 
 		resp, err := client.Do(context.Background(), req)
 		if err != nil {
@@ -166,7 +175,10 @@ func TestClientRedirectHandling(t *testing.T) {
 		}
 
 		client := NewClient(config)
-		req, _ := http.NewRequest("GET", ts.URL, nil)
+		req, err := http.NewRequestWithContext(context.Background(), "GET", ts.URL, nil)
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
 
 		resp, err := client.Do(context.Background(), req)
 		if err != nil {
@@ -201,9 +213,12 @@ func TestClientTimeout(t *testing.T) {
 	}
 
 	client := NewClient(config)
-	req, _ := http.NewRequest("GET", ts.URL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", ts.URL, nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
 
-	_, err := client.Do(context.Background(), req)
+	_, err = client.Do(context.Background(), req)
 
 	if err == nil {
 		t.Error("Expected timeout error, got nil")
@@ -224,12 +239,15 @@ func TestClientContextCancellation(t *testing.T) {
 	}
 
 	client := NewClient(config)
-	req, _ := http.NewRequest("GET", ts.URL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", ts.URL, nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	_, err := client.Do(ctx, req)
+	_, err = client.Do(ctx, req)
 
 	if err == nil {
 		t.Error("Expected context cancellation error, got nil")
