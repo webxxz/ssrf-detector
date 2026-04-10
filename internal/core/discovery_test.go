@@ -49,3 +49,46 @@ func TestDiscoverInjectionPoints(t *testing.T) {
 		t.Error("expected json injection point")
 	}
 }
+
+func TestDiscoverInjectionPointsSemanticNames(t *testing.T) {
+	parsed, err := url.Parse("https://example.com/api/proxy?dest=internal-service&name=demo")
+	if err != nil {
+		t.Fatalf("parse url: %v", err)
+	}
+
+	target := &Target{
+		URL:    parsed,
+		Method: "POST",
+		Headers: http.Header{
+			"Content-Type": []string{"application/x-www-form-urlencoded"},
+		},
+		Body: []byte("callback=next-hop&name=demo"),
+	}
+
+	points := DiscoverInjectionPoints(target)
+	if len(points) == 0 {
+		t.Fatal("expected discovered points")
+	}
+
+	hasPoint := func(injectionType InjectionType, name string) bool {
+		for _, p := range points {
+			if p.Type == injectionType && p.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+
+	if !hasPoint(InjectionQuery, "dest") {
+		t.Error("expected semantic query parameter to be discovered")
+	}
+	if hasPoint(InjectionQuery, "name") {
+		t.Error("did not expect non-URL-like query parameter")
+	}
+	if !hasPoint(InjectionBody, "callback") {
+		t.Error("expected semantic body parameter to be discovered")
+	}
+	if hasPoint(InjectionBody, "name") {
+		t.Error("did not expect non-URL-like body parameter")
+	}
+}
