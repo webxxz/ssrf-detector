@@ -22,6 +22,9 @@ func TestComputeCVSSAWSMetadataFinding(t *testing.T) {
 	if score < 9.0 {
 		t.Fatalf("expected CVSS >= 9.0, got %.1f", score)
 	}
+	if score > 10.0 {
+		t.Fatalf("expected CVSS <= 10.0, got %.1f", score)
+	}
 	if !strings.Contains(vector, "/S:C/") {
 		t.Fatalf("expected scope changed vector, got %s", vector)
 	}
@@ -39,7 +42,7 @@ func TestComputeCVSSBlindSSRFOnly(t *testing.T) {
 
 	score, vector := ComputeCVSS(f)
 	if score < 5.0 || score >= 8.0 {
-		t.Fatalf("expected CVSS in 5.x-7.x range, got %.1f", score)
+		t.Fatalf("expected CVSS in 5.0-7.9 range, got %.1f", score)
 	}
 	if !strings.Contains(vector, "/S:U/") {
 		t.Fatalf("expected unchanged scope vector, got %s", vector)

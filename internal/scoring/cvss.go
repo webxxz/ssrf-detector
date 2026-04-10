@@ -82,6 +82,7 @@ func deriveVector(f *ScoredFinding) CVSSVector {
 
 	c := "L"
 	switch {
+	// Precedence follows impact severity: credential-theft chain dominates blind-only hints.
 	case credentialChain:
 		c = "H"
 	case blindOnly:
@@ -172,6 +173,7 @@ func computeBaseScore(v CVSSVector) float64 {
 	if v.S == "U" {
 		impact = 6.42 * iss
 	} else {
+		// CVSS v3.1 base metric formula for Scope Changed (Specification v3.1, Section 2).
 		impact = 7.52*(iss-0.029) - 3.25*math.Pow(iss-0.02, 15)
 	}
 
