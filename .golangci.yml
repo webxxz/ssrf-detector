@@ -1,0 +1,14 @@
+linters:
+  enable:
+    - errcheck
+    - gosec
+    - govet
+    - staticcheck
+    - unused
+    - bodyclose
+    - noctx
+
+linters-settings:
+  gosec:
+    excludes:
+      - G107
