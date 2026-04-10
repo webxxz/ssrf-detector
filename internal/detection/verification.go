@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"net/http"
 	"time"
 
 	"ssrf-detector/internal/core"
@@ -186,21 +185,14 @@ func (e *VerificationEngine) testReproducibility(ctx context.Context, target *co
 		identifier, _ := e.oobManager.GenerateIdentifier(target, fmt.Sprintf("repro-%d", i))
 		oobURL, _ := e.oobManager.BuildURL(identifier, "/reproducibility-test")
 
-		// Send test
-		testTarget := *target
-		targetURL := *target.URL
-		q := targetURL.Query()
-		q.Set(target.InjectionPoint.Name, oobURL)
-		targetURL.RawQuery = q.Encode()
-		testTarget.URL = &targetURL
-
-		req, err := http.NewRequest(target.Method, testTarget.URL.String(), nil)
+		testTarget, err := applyInjectionPayload(target, oobURL)
 		if err != nil {
 			continue
 		}
 
-		for k, v := range target.Headers {
-			req.Header[k] = v
+		req, err := buildRequestFromTarget(testTarget)
+		if err != nil {
+			continue
 		}
 
 		_, err = e.httpClient.Do(ctx, req)

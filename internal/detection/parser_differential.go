@@ -3,7 +3,6 @@ package detection
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"ssrf-detector/internal/core"
@@ -265,42 +264,28 @@ func (e *ParserDifferentialEngine) testFragmentHandling(ctx context.Context, tar
 // Helper functions
 
 func (e *ParserDifferentialEngine) sendTest(ctx context.Context, target *core.Target, testURL string) (*core.Response, error) {
-	testTarget := *target
-	targetURL := *target.URL
-
-	q := targetURL.Query()
-	q.Set(target.InjectionPoint.Name, testURL)
-	targetURL.RawQuery = q.Encode()
-	testTarget.URL = &targetURL
-
-	req, err := http.NewRequest(target.Method, testTarget.URL.String(), nil)
+	testTarget, err := applyInjectionPayload(target, testURL)
 	if err != nil {
 		return nil, err
 	}
 
-	for k, v := range target.Headers {
-		req.Header[k] = v
+	req, err := buildRequestFromTarget(testTarget)
+	if err != nil {
+		return nil, err
 	}
 
 	return e.httpClient.Do(ctx, req)
 }
 
 func (e *ParserDifferentialEngine) sendTestWithTiming(ctx context.Context, target *core.Target, testURL string) (*core.Response, *core.RequestTiming, error) {
-	testTarget := *target
-	targetURL := *target.URL
-
-	q := targetURL.Query()
-	q.Set(target.InjectionPoint.Name, testURL)
-	targetURL.RawQuery = q.Encode()
-	testTarget.URL = &targetURL
-
-	req, err := http.NewRequest(target.Method, testTarget.URL.String(), nil)
+	testTarget, err := applyInjectionPayload(target, testURL)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	for k, v := range target.Headers {
-		req.Header[k] = v
+	req, err := buildRequestFromTarget(testTarget)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return e.httpClient.DoWithTiming(ctx, req)

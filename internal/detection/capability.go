@@ -3,7 +3,6 @@ package detection
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"ssrf-detector/internal/core"
@@ -115,24 +114,14 @@ func (e *CapabilityEngine) Execute(ctx context.Context, target *core.Target, sta
 
 // testExternalFetch tests if application fetches external URLs
 func (e *CapabilityEngine) testExternalFetch(ctx context.Context, target *core.Target, oobURL string) (*core.Response, *core.RequestTiming, error) {
-	// Build test request with OOB URL
-	testTarget := *target
-	testURL := *target.URL
-
-	q := testURL.Query()
-	q.Set(target.InjectionPoint.Name, oobURL)
-	testURL.RawQuery = q.Encode()
-
-	testTarget.URL = &testURL
-
-	req, err := http.NewRequest(target.Method, testTarget.URL.String(), nil)
+	testTarget, err := applyInjectionPayload(target, oobURL)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Copy headers
-	for k, v := range target.Headers {
-		req.Header[k] = v
+	req, err := buildRequestFromTarget(testTarget)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Execute with timing

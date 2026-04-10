@@ -2,11 +2,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -22,7 +24,7 @@ const version = "1.0.0"
 
 func main() {
 	// Parse command line arguments
-	config, target, err := parseArgs(os.Args[1:])
+	config, targets, err := parseArgs(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		printUsage()
@@ -54,14 +56,18 @@ func main() {
 	}()
 
 	// Run scanner
-	if err := run(ctx, config, target); err != nil {
+	if err := run(ctx, config, targets); err != nil {
 		fmt.Fprintf(os.Stderr, "Scan failed: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 // run executes the scan
-func run(ctx context.Context, config *core.Config, target *core.Target) error {
+func run(ctx context.Context, config *core.Config, targets []*core.Target) error {
+	if len(targets) == 0 {
+		return fmt.Errorf("no targets to scan")
+	}
+
 	// Initialize OOB manager
 	oobManager, err := oob.NewManager(config)
 	if err != nil {
@@ -92,19 +98,8 @@ func run(ctx context.Context, config *core.Config, target *core.Target) error {
 
 	// Execute scan
 	if config.Verbose {
-		fmt.Printf("[+] Starting scan of %s\n", target.URL.String())
+		fmt.Printf("[+] Starting scan of %d target(s)\n", len(targets))
 		fmt.Printf("[+] Authorization level: %s\n", config.AuthLevel)
-		fmt.Printf("[+] Injection point: %s (%s)\n", target.InjectionPoint.Name, target.InjectionPoint.Type)
-	}
-
-	state, err := pipeline.Execute(ctx, target)
-	if err != nil {
-		return fmt.Errorf("scan execution failed: %w", err)
-	}
-
-	if config.Verbose {
-		fmt.Printf("[+] Scan completed in %s\n", time.Since(state.StartTime))
-		fmt.Printf("[+] Total evidence collected: %d\n", len(state.Evidence))
 	}
 
 	// Score and build findings
@@ -112,26 +107,60 @@ func run(ctx context.Context, config *core.Config, target *core.Target) error {
 	fpChecker := scoring.NewFalsePositiveChecker(config)
 
 	findings := make([]*core.Finding, 0)
+	scanStart := time.Now()
+	var reportState *core.ScanState
 
-	// Attempt to build finding from collected evidence
-	finding, err := scorer.BuildFinding(state)
-	if err != nil {
+	for idx, target := range targets {
 		if config.Verbose {
-			fmt.Printf("[!] No valid finding: %v\n", err)
+			fmt.Printf("[+] [%d/%d] Scanning %s (%s:%s)\n",
+				idx+1, len(targets), target.URL.String(), target.InjectionPoint.Type, target.InjectionPoint.Name)
 		}
-	} else {
+
+		state, err := pipeline.Execute(ctx, target)
+		if err != nil {
+			return fmt.Errorf("scan execution failed for %s (%s:%s): %w",
+				target.URL.String(), target.InjectionPoint.Type, target.InjectionPoint.Name, err)
+		}
+		if reportState == nil {
+			if len(targets) == 1 {
+				reportState = state
+			} else {
+				reportState = &core.ScanState{
+					Target:       targets[0],
+					Config:       config,
+					PhaseResults: make(map[core.DetectionPhase]*core.PhaseResult),
+					Capabilities: make(map[string]bool),
+					Metadata: map[string]interface{}{
+						"batch_target_count": len(targets),
+					},
+					StartTime: scanStart,
+				}
+			}
+		}
+
+		// Attempt to build finding from collected evidence
+		finding, err := scorer.BuildFinding(state)
+		if err != nil {
+			if config.Verbose {
+				fmt.Printf("[!] No valid finding for %s (%s:%s): %v\n",
+					target.URL.String(), target.InjectionPoint.Type, target.InjectionPoint.Name, err)
+			}
+			continue
+		}
+
 		// Check for false positives
 		if err := fpChecker.Check(finding, state); err != nil {
 			if config.Verbose {
-				fmt.Printf("[!] Finding rejected as false positive: %v\n", err)
+				fmt.Printf("[!] Finding rejected as false positive for %s (%s:%s): %v\n",
+					target.URL.String(), target.InjectionPoint.Type, target.InjectionPoint.Name, err)
 			}
-		} else {
-			findings = append(findings, finding)
+			continue
 		}
+		findings = append(findings, finding)
 	}
 
 	// Generate report
-	if err := generateReport(config, findings, state); err != nil {
+	if err := generateReport(config, findings, reportState); err != nil {
 		return fmt.Errorf("failed to generate report: %w", err)
 	}
 
@@ -202,7 +231,7 @@ func printSummary(findings []*core.Finding, verbose bool) {
 }
 
 // parseArgs parses command line arguments
-func parseArgs(args []string) (*core.Config, *core.Target, error) {
+func parseArgs(args []string) (*core.Config, []*core.Target, error) {
 	config := core.DefaultConfig()
 
 	// Simple argument parsing (in production, use flag package or cobra)
@@ -212,6 +241,8 @@ func parseArgs(args []string) (*core.Config, *core.Target, error) {
 
 	var targetURL string
 	var paramName string
+	var targetsFile string
+	autoDiscover := false
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -228,6 +259,16 @@ func parseArgs(args []string) (*core.Config, *core.Target, error) {
 			}
 			paramName = args[i+1]
 			i++
+
+		case "--targets-file":
+			if i+1 >= len(args) {
+				return nil, nil, fmt.Errorf("missing value for %s", args[i])
+			}
+			targetsFile = args[i+1]
+			i++
+
+		case "--auto-discover":
+			autoDiscover = true
 
 		case "--oob-domain":
 			if i+1 >= len(args) {
@@ -286,36 +327,80 @@ func parseArgs(args []string) (*core.Config, *core.Target, error) {
 		}
 	}
 
-	// Validate required arguments
-	if targetURL == "" {
-		return nil, nil, fmt.Errorf("target URL is required (-u)")
-	}
-
-	if paramName == "" {
-		return nil, nil, fmt.Errorf("parameter name is required (-p)")
-	}
-
 	if config.OOBDomain == "" {
 		return nil, nil, fmt.Errorf("OOB domain is required (--oob-domain)")
 	}
 
-	// Parse target URL
-	parsedURL, err := url.Parse(targetURL)
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid target URL: %w", err)
+	if targetURL == "" && targetsFile == "" {
+		return nil, nil, fmt.Errorf("either target URL (-u) or --targets-file is required")
 	}
 
-	// Build target
-	target := &core.Target{
-		URL:    parsedURL,
-		Method: "GET",
-		InjectionPoint: core.InjectionPoint{
-			Type: core.InjectionQuery,
-			Name: paramName,
-		},
+	if !autoDiscover && paramName == "" {
+		return nil, nil, fmt.Errorf("parameter name is required (-p) unless --auto-discover is set")
 	}
 
-	return config, target, nil
+	allTargets := make([]*core.Target, 0)
+	urls := make([]string, 0)
+	if targetURL != "" {
+		urls = append(urls, targetURL)
+	}
+	if targetsFile != "" {
+		fileURLs, err := loadTargetsFile(targetsFile)
+		if err != nil {
+			return nil, nil, err
+		}
+		urls = append(urls, fileURLs...)
+	}
+
+	if len(urls) == 0 {
+		return nil, nil, fmt.Errorf("no URLs found to scan")
+	}
+
+	for _, rawURL := range urls {
+		parsedURL, err := url.Parse(rawURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid target URL %q: %w", rawURL, err)
+		}
+
+		baseTarget := &core.Target{
+			URL:     parsedURL,
+			Method:  "GET",
+			Headers: make(map[string][]string),
+		}
+
+		if autoDiscover {
+			points := core.DiscoverInjectionPoints(baseTarget)
+			for _, point := range points {
+				t := *baseTarget
+				t.InjectionPoint = point
+				allTargets = append(allTargets, &t)
+			}
+			if len(points) == 0 && paramName != "" {
+				t := *baseTarget
+				t.InjectionPoint = core.InjectionPoint{
+					Type:    core.InjectionQuery,
+					Name:    paramName,
+					Context: core.ContextURLEncoded,
+				}
+				allTargets = append(allTargets, &t)
+			}
+			continue
+		}
+
+		t := *baseTarget
+		t.InjectionPoint = core.InjectionPoint{
+			Type:    core.InjectionQuery,
+			Name:    paramName,
+			Context: core.ContextURLEncoded,
+		}
+		allTargets = append(allTargets, &t)
+	}
+
+	if len(allTargets) == 0 {
+		return nil, nil, fmt.Errorf("no injection points discovered; provide -p or use URLs with injectable parameters")
+	}
+
+	return config, allTargets, nil
 }
 
 // parseAuthLevel parses authorization level string
@@ -358,13 +443,16 @@ SSRF Detector - Production-Grade SSRF and Open Redirect Detection
 
 Usage:
   ssrfdetect -u <URL> -p <param> --oob-domain <domain> [options]
+  ssrfdetect --targets-file <file> --oob-domain <domain> [options]
 
 Required Arguments:
-  -u, --url <URL>              Target URL to test
-  -p, --param <name>           Parameter name to inject into
+  -u, --url <URL>              Target URL to test (or use --targets-file)
+  -p, --param <name>           Parameter name to inject into (required unless --auto-discover)
   --oob-domain <domain>        Out-of-band callback domain
 
 Optional Arguments:
+  --targets-file <file>        File with target URLs (one per line, '#' comments supported)
+  --auto-discover              Auto-discover injection points (query/path/header/body/json)
   --auth-level <level>         Authorization level: none|basic|full|exploit (default: none)
   --allow-internal             Allow internal IP testing (requires auth-level >= basic)
   --allow-cloud-metadata       Allow cloud metadata testing (requires auth-level >= basic)
@@ -408,6 +496,9 @@ Examples:
     --oob-domain oob.scanner.io \
     -f csv -o results.csv
 
+  # Scan a batch of targets with auto injection-point discovery
+  ssrfdetect --targets-file targets.txt --oob-domain oob.scanner.io --auto-discover -v
+
 Safety Notice:
   This tool performs active security testing. Ensure you have proper authorization
   before scanning any target. Unauthorized testing may be illegal.
@@ -416,4 +507,26 @@ Documentation:
   https://github.com/example/ssrf-detector
 `
 	fmt.Println(usage)
+}
+
+func loadTargetsFile(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open targets file: %w", err)
+	}
+	defer file.Close()
+
+	targets := make([]string, 0)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		targets = append(targets, line)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read targets file: %w", err)
+	}
+	return targets, nil
 }
