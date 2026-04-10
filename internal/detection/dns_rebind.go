@@ -125,9 +125,9 @@ func durationDelta(a, b time.Duration) time.Duration {
 }
 
 func generateRebindUUID() string {
-	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
+	randomBytes := make([]byte, 8)
+	if _, err := rand.Read(randomBytes); err != nil {
 		return ""
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(randomBytes)
 }
