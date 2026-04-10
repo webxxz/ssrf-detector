@@ -58,14 +58,7 @@ func DiscoverInjectionPoints(target *Target) []InjectionPoint {
 	}
 
 	if target.URL != nil {
-		for name, values := range target.URL.Query() {
-			value := ""
-			if len(values) > 0 {
-				value = values[0]
-			}
-			if !isLikelySSRFTarget(name, value) {
-				continue
-			}
+		for name := range target.URL.Query() {
 			addPoint(InjectionPoint{Type: InjectionQuery, Name: name, Context: ContextURLEncoded})
 		}
 
@@ -144,11 +137,7 @@ func discoverBodyPoints(target *Target, addPoint func(InjectionPoint)) {
 	if strings.Contains(contentType, "application/x-www-form-urlencoded") {
 		if form, err := url.ParseQuery(bodyStr); err == nil {
 			for key, values := range form {
-				value := ""
 				if len(values) > 0 {
-					value = values[0]
-				}
-				if isLikelySSRFTarget(key, value) {
 					addPoint(InjectionPoint{Type: InjectionBody, Name: key, Context: ContextURLEncoded})
 				}
 			}

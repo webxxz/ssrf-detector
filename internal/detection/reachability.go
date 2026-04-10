@@ -335,7 +335,7 @@ func inferBackendHints(resp *core.Response) []string {
 	hints := make([]string, 0)
 	cookies := strings.ToLower(strings.Join(resp.Header.Values("Set-Cookie"), ";"))
 	server := strings.ToLower(resp.Header.Get("Server"))
-	body := strings.ToLower(string(resp.BodyBytes))
+	body := normalizeSample(resp.BodyBytes, 4096)
 
 	if strings.Contains(cookies, "jsessionid") || strings.Contains(server, "tomcat") {
 		hints = append(hints, "java")
@@ -398,7 +398,7 @@ func inferCloudHints(resp *core.Response) []string {
 	}
 
 	hints := make([]string, 0)
-	joined := strings.ToLower(resp.Header.Get("Server") + " " + strings.Join(resp.Header.Values("Set-Cookie"), " ") + " " + string(resp.BodyBytes))
+	joined := strings.ToLower(resp.Header.Get("Server") + " " + strings.Join(resp.Header.Values("Set-Cookie"), " ") + " " + normalizeSample(resp.BodyBytes, 4096))
 
 	if strings.Contains(joined, "x-amz") || strings.Contains(joined, "amazon") || strings.Contains(joined, "aws") {
 		hints = append(hints, "aws")
@@ -427,6 +427,16 @@ func dedupeStrings(values []string) []string {
 		result = append(result, v)
 	}
 	return result
+}
+
+func normalizeSample(body []byte, max int) string {
+	if len(body) == 0 {
+		return ""
+	}
+	if max > 0 && len(body) > max {
+		body = body[:max]
+	}
+	return strings.ToLower(string(body))
 }
 
 // ErrorMessageEvidence captures error pattern evidence

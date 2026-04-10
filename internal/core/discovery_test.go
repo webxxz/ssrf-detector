@@ -82,13 +82,7 @@ func TestDiscoverInjectionPointsSemanticNames(t *testing.T) {
 	if !hasPoint(InjectionQuery, "dest") {
 		t.Error("expected semantic query parameter to be discovered")
 	}
-	if hasPoint(InjectionQuery, "name") {
-		t.Error("did not expect non-URL-like query parameter")
-	}
 	if !hasPoint(InjectionBody, "callback") {
 		t.Error("expected semantic body parameter to be discovered")
-	}
-	if hasPoint(InjectionBody, "name") {
-		t.Error("did not expect non-URL-like body parameter")
 	}
 }
