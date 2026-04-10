@@ -22,6 +22,7 @@ func ReasonChains(finding *core.Finding) []core.AttackChain {
 				"Fetch credentials JSON → AccessKeyId + SecretAccessKey + Token",
 				"Use credentials for account enumeration and privilege abuse",
 			},
+			// CVSS 9.8 reflects network attack vector, no privileges required, and high C/I/A impact.
 			CVSS:   9.8,
 			Impact: "Potential AWS account compromise",
 		})

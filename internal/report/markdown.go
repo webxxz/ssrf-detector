@@ -119,7 +119,7 @@ func (r *MarkdownReporter) formatFinding(num int, finding *core.Finding) string 
 	sb.WriteString("|----------|-------|\n")
 	sb.WriteString(fmt.Sprintf("| **Severity** | %s |\n", finding.Severity))
 	sb.WriteString(fmt.Sprintf("| **Confidence** | %s (%d/100) |\n", finding.Confidence, finding.ConfidenceScore))
-	sb.WriteString(fmt.Sprintf("| **Blind Fusion Score** | %.2f |\n", finding.BlindFusionScore))
+	sb.WriteString(fmt.Sprintf("| **Blind Fusion Score (0.00-1.00)** | %.2f |\n", finding.BlindFusionScore))
 	if finding.CVSS > 0 {
 		sb.WriteString(fmt.Sprintf("| **CVSS** | %.1f |\n", finding.CVSS))
 	}

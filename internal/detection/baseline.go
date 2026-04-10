@@ -195,8 +195,12 @@ func normalizedDurationDelta(base, probe time.Duration) float64 {
 	if base <= 0 {
 		return 0
 	}
-	diff := math.Abs(float64(base - probe))
-	ratio := float64(diff) / float64(base)
+	diff := math.Abs(float64(base.Milliseconds() - probe.Milliseconds()))
+	baseMS := math.Abs(float64(base.Milliseconds()))
+	if baseMS == 0 {
+		return 0
+	}
+	ratio := diff / baseMS
 	if ratio > 1 {
 		return 1
 	}
