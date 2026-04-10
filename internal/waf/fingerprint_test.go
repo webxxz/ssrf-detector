@@ -14,6 +14,12 @@ func TestFingerprintWAFCloudflare(t *testing.T) {
 	}
 }
 
+func TestFingerprintWAFNilResponse(t *testing.T) {
+	if got := FingerprintWAF(nil); got != WAFNone {
+		t.Fatalf("expected none, got %s", got)
+	}
+}
+
 func TestFingerprintWAFModSecurity(t *testing.T) {
 	resp := &http.Response{
 		StatusCode: http.StatusForbidden,

@@ -21,7 +21,7 @@ func FingerprintWAF(resp *http.Response) WAFVendor {
 	if resp == nil {
 		return WAFNone
 	}
-	if resp.Header.Get("CF-Ray") != "" {
+	if resp.Header.Get("Cf-Ray") != "" {
 		return WAFCloudflare
 	}
 	if resp.Header.Get("X-Check-Cacheable") != "" {

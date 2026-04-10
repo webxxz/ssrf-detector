@@ -179,7 +179,7 @@ func generateReport(config *core.Config, findings []*core.Finding, state *core.S
 		reporter = report.NewJSONReporter(config)
 	case "markdown", "md":
 		if config.ReportPlatform != "" {
-			reporter = report.NewPlatformMarkdownReporter(config, report.Platform(strings.ToLower(config.ReportPlatform)))
+			reporter = report.NewPlatformMarkdownReporter(config, report.Platform(config.ReportPlatform))
 		} else {
 			reporter = report.NewMarkdownReporter(config)
 		}
