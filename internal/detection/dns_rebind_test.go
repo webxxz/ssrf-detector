@@ -16,7 +16,11 @@ func TestDetectRebindingWhenResponsesDiffer(t *testing.T) {
 	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		injected := r.URL.Query().Get("u")
-		parsed, _ := url.Parse(injected)
+		parsed, err := url.Parse(injected)
+		if err != nil || parsed == nil {
+			http.Error(w, "invalid injected url", http.StatusBadRequest)
+			return
+		}
 		key := parsed.Host
 
 		mu.Lock()

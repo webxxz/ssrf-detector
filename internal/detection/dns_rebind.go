@@ -14,6 +14,7 @@ import (
 
 const maxRebindResponseBodyBytes = 64 * 1024
 const rebindResponseFingerprintFormat = "status=%d body=%s"
+const rebindProbeURLScheme = "http"
 
 type RebindProbe struct {
 	// ExternalIP/InternalIP are metadata placeholders for integrations that drive
@@ -45,7 +46,9 @@ func DetectRebinding(client *http.Client, targetParam string, oobDomain string) 
 		UUID:   result.UUID,
 	}
 
-	payloadURL := fmt.Sprintf("http://%s/", probe.Domain)
+	// Intentionally uses HTTP for broad SSRF sink compatibility without requiring
+	// wildcard TLS certificates on researcher-controlled callback domains.
+	payloadURL := fmt.Sprintf("%s://%s/", rebindProbeURLScheme, probe.Domain)
 	targetURL, err := buildRebindTargetURL(targetParam, payloadURL)
 	if err != nil {
 		return result
