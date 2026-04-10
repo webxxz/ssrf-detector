@@ -2,6 +2,7 @@ package detection
 
 import (
 	"math"
+	"time"
 
 	"ssrf-detector/internal/core"
 )
@@ -41,6 +42,17 @@ type ConfidenceScore struct {
 	Level FusionConfidenceLevel
 }
 
+const (
+	oobSignalWeight       = 0.50
+	timingSignalWeight    = 0.20
+	portOracleWeight      = 0.15
+	errorDiffWeight       = 0.10
+	sizeDeltaWeight       = 0.05
+	timingDeltaThreshold  = 2 * time.Second
+	errorDiffThreshold    = 0.4
+	sizeDeltaThresholdAbs = 200
+)
+
 // FuseBlindSignals combines multiple blind SSRF signals into one confidence score.
 func FuseBlindSignals(signals *BlindSSRFSignals) ConfidenceScore {
 	if signals == nil {
@@ -50,19 +62,19 @@ func FuseBlindSignals(signals *BlindSSRFSignals) ConfidenceScore {
 	score := 0.0
 
 	if signals.OOBCallback != nil && signals.OOBCallback.Received {
-		score += 0.50
+		score += oobSignalWeight
 	}
-	if signals.TimingDelta > 2000 {
-		score += 0.20
+	if signals.TimingDelta > float64(timingDeltaThreshold.Milliseconds()) {
+		score += timingSignalWeight
 	}
 	if signals.PortOracle != nil && signals.PortOracle.BehaviorDiffers {
-		score += 0.15
+		score += portOracleWeight
 	}
-	if signals.ErrorDiff > 0.4 {
-		score += 0.10
+	if signals.ErrorDiff > errorDiffThreshold {
+		score += errorDiffWeight
 	}
-	if math.Abs(float64(signals.SizeDelta)) > 200 {
-		score += 0.05
+	if math.Abs(float64(signals.SizeDelta)) > sizeDeltaThresholdAbs {
+		score += sizeDeltaWeight
 	}
 
 	if score > 1 {

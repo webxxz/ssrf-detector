@@ -3,6 +3,7 @@ package detection
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"ssrf-detector/internal/core"
@@ -16,6 +17,13 @@ type BaselineProfile struct {
 	ErrorPattern  string
 	RedirectChain []string
 }
+
+const (
+	baselineTimingWeight = 0.30
+	baselineSizeWeight   = 0.30
+	baselineStatusWeight = 0.20
+	baselineErrorWeight  = 0.20
+)
 
 // ProbeResult captures one probe response in baseline-comparable form.
 type ProbeResult struct {
@@ -104,7 +112,10 @@ func DiffFromBaseline(baseline *BaselineProfile, result *ProbeResult) float64 {
 		}
 	}
 
-	score := timingDelta*0.30 + sizeDelta*0.30 + statusDelta*0.20 + errorDelta*0.20
+	score := timingDelta*baselineTimingWeight +
+		sizeDelta*baselineSizeWeight +
+		statusDelta*baselineStatusWeight +
+		errorDelta*baselineErrorWeight
 	if score < 0 {
 		return 0
 	}
@@ -184,10 +195,7 @@ func normalizedDurationDelta(base, probe time.Duration) float64 {
 	if base <= 0 {
 		return 0
 	}
-	diff := base - probe
-	if diff < 0 {
-		diff = -diff
-	}
+	diff := math.Abs(float64(base - probe))
 	ratio := float64(diff) / float64(base)
 	if ratio > 1 {
 		return 1
@@ -202,11 +210,8 @@ func normalizedIntDelta(base, probe int) float64 {
 		}
 		return 1
 	}
-	diff := base - probe
-	if diff < 0 {
-		diff = -diff
-	}
-	ratio := float64(diff) / float64(base)
+	diff := math.Abs(float64(base - probe))
+	ratio := diff / float64(base)
 	if ratio > 1 {
 		return 1
 	}

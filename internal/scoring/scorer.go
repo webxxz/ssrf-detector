@@ -16,6 +16,12 @@ type Scorer struct {
 	config *core.Config
 }
 
+const (
+	originalScoreWeight = 0.6
+	fusionScoreWeight   = 0.4
+	highCVSSScoreBonus  = 15
+)
+
 // NewScorer creates a new scorer
 func NewScorer(config *core.Config) *Scorer {
 	return &Scorer{
@@ -240,7 +246,7 @@ func (s *Scorer) BuildFinding(state *core.ScanState) (*core.Finding, error) {
 	// Blind-signal fusion score
 	fusion := detection.FuseBlindSignals(detection.BuildBlindSignals(state))
 	if fusion.Score > 0 {
-		score = int(math.Round((0.6 * float64(score)) + (0.4 * fusion.Score * 100)))
+		score = int(math.Round((originalScoreWeight * float64(score)) + (fusionScoreWeight * fusion.Score * 100)))
 		if score > 100 {
 			score = 100
 		}
@@ -294,7 +300,7 @@ func (s *Scorer) BuildFinding(state *core.ScanState) (*core.Finding, error) {
 	finding.AttackChains = chains
 	finding.CVSS = highestChainCVSS(chains)
 	if finding.CVSS >= 9.0 {
-		score += 15
+		score += highCVSSScoreBonus
 		if score > 100 {
 			score = 100
 		}

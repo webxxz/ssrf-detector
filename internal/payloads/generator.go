@@ -1,6 +1,9 @@
 package payloads
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Payload represents one generated test payload.
 type Payload struct {
@@ -32,7 +35,7 @@ func GeneratePayloads(ctx *EnvironmentContext) []Payload {
 		return payloads
 	}
 
-	switch ctx.CloudProvider {
+	switch strings.ToLower(ctx.CloudProvider) {
 	case "aws":
 		payloads = append(payloads, awsMetadataPayloads()...)
 		payloads = append(payloads, awsIMDSv2Payloads()...)

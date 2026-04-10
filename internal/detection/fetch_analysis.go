@@ -17,6 +17,8 @@ type FetchAnalysisEngine struct {
 	oobManager core.OOBManager
 }
 
+const maxContextAwarePayloadTests = 5
+
 func NewFetchAnalysisEngine(config *core.Config, httpClient core.HTTPClient, oobManager core.OOBManager) *FetchAnalysisEngine {
 	return &FetchAnalysisEngine{
 		config:     config,
@@ -379,7 +381,7 @@ func (e *FetchAnalysisEngine) buildEnvironmentContext(state *core.ScanState) *pa
 }
 
 func (e *FetchAnalysisEngine) executeContextAwarePayloads(ctx context.Context, target *core.Target, generated []payloads.Payload) map[string]bool {
-	maxTests := 5
+	maxTests := maxContextAwarePayloadTests
 	if len(generated) < maxTests {
 		maxTests = len(generated)
 	}
@@ -395,7 +397,10 @@ func (e *FetchAnalysisEngine) executeContextAwarePayloads(ctx context.Context, t
 				continue
 			}
 			value = strings.ReplaceAll(value, "{{OOB}}", identifier+"."+e.config.OOBDomain)
-			_, _ = e.sendTestRequest(ctx, target, value)
+			_, err = e.sendTestRequest(ctx, target, value)
+			if err != nil && e.config.Verbose {
+				fmt.Printf("[WARN] Context-aware payload %s failed: %v\n", payload.Name, err)
+			}
 			callback, _ := e.oobManager.CheckCallback(identifier)
 			observation[payload.Name] = callback != nil
 			continue
