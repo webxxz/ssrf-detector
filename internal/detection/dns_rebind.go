@@ -13,6 +13,7 @@ import (
 )
 
 const maxRebindResponseBodyBytes = 64 * 1024
+const rebindResponseFingerprintFormat = "status=%d body=%s"
 
 type RebindProbe struct {
 	// ExternalIP/InternalIP are metadata placeholders for integrations that drive
@@ -35,7 +36,7 @@ func DetectRebinding(client *http.Client, targetParam string, oobDomain string) 
 	result := &RebindResult{
 		UUID: generateRebindUUID(),
 	}
-	if client == nil || targetParam == "" || oobDomain == "" {
+	if result.UUID == "" || client == nil || targetParam == "" || oobDomain == "" {
 		return result
 	}
 
@@ -113,7 +114,7 @@ func doRebindAttempt(client *http.Client, targetURL string) (string, time.Durati
 	}
 	duration := time.Since(start)
 
-	return fmt.Sprintf("status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body))), duration, nil
+	return fmt.Sprintf(rebindResponseFingerprintFormat, resp.StatusCode, strings.TrimSpace(string(body))), duration, nil
 }
 
 func durationDelta(a, b time.Duration) time.Duration {
@@ -123,7 +124,7 @@ func durationDelta(a, b time.Duration) time.Duration {
 func generateRebindUUID() string {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		return fmt.Sprintf("%d", time.Now().UnixNano())
+		return ""
 	}
 	return hex.EncodeToString(b)
 }

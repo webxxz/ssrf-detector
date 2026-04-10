@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestDetectRebindingDetectedWhenResponsesDiffer(t *testing.T) {
+func TestDetectRebindingWhenResponsesDiffer(t *testing.T) {
 	var (
 		mu       sync.Mutex
 		attempts = map[string]int{}
