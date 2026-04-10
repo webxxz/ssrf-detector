@@ -237,13 +237,15 @@ func (e *TrustBoundaryEngine) testHeaderTrust(ctx context.Context, target *core.
 	}
 
 	// Send request
-	e.httpClient.Do(ctx, req)
+	if _, err := e.httpClient.Do(ctx, req); err != nil {
+		return false
+	}
 
 	// Check for OOB callback
 	oobCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	callback, err := e.oobManager.WaitForCallback(oobCtx, identifier, 3*time.Second)
+	callback, _ := e.oobManager.WaitForCallback(oobCtx, identifier, 3*time.Second)
 
 	// If callback received, header value was used in backend request
 	return callback != nil

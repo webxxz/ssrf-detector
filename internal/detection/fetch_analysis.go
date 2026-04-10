@@ -225,7 +225,10 @@ func (e *FetchAnalysisEngine) discoverPortRestrictions(ctx context.Context, targ
 		// Add port to URL
 		testURL := fmt.Sprintf("http://%s.%s:%d/test", identifier, e.config.OOBDomain, port)
 
-		e.sendTestRequest(ctx, target, testURL)
+		if _, err := e.sendTestRequest(ctx, target, testURL); err != nil {
+			ports[fmt.Sprintf("port_%d", port)] = false
+			continue
+		}
 
 		callback, _ := e.oobManager.CheckCallback(identifier)
 		ports[fmt.Sprintf("port_%d", port)] = (callback != nil)
@@ -251,7 +254,9 @@ func (e *FetchAnalysisEngine) fingerprintHTTPClient(ctx context.Context, target 
 	}
 
 	// Send request
-	e.sendTestRequest(ctx, target, oobURL)
+	if _, err := e.sendTestRequest(ctx, target, oobURL); err != nil {
+		return nil, err
+	}
 
 	// Wait for callback
 	oobCtx, cancel := context.WithTimeout(ctx, 5*time.Second)

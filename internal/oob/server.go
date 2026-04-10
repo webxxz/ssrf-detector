@@ -166,7 +166,9 @@ func (ds *DNSServer) handleDNSQuery(data []byte, addr net.Addr) {
 
 	// Send DNS response (simplified)
 	response := ds.buildDNSResponse(data, queryName)
-	ds.listener.WriteTo(response, addr)
+	if _, err := ds.listener.WriteTo(response, addr); err != nil {
+		return
+	}
 }
 
 // parseDNSQuery extracts query name and type (simplified)
@@ -202,7 +204,7 @@ func (ds *DNSServer) parseDNSQuery(data []byte) (string, string) {
 
 	queryName := ""
 	if len(labels) > 0 {
-		queryName = fmt.Sprintf("%s", labels[0]) // Just use first label as identifier
+		queryName = labels[0] // Just use first label as identifier
 	}
 
 	return queryName, "A" // Simplified, always return A record

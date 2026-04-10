@@ -75,7 +75,9 @@ func TestManager_WaitForCallback(t *testing.T) {
 			SourceIP:   "203.0.113.50",
 			Timestamp:  time.Now(),
 		}
-		manager.RegisterCallback(callback)
+		if err := manager.RegisterCallback(callback); err != nil {
+			t.Errorf("failed to register callback: %v", err)
+		}
 	}()
 
 	// Wait for callback

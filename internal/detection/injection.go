@@ -2,6 +2,7 @@ package detection
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -76,7 +77,7 @@ func buildRequestFromTarget(target *core.Target) (*http.Request, error) {
 		bodyReader = bytes.NewReader(nil)
 	}
 
-	req, err := http.NewRequest(target.Method, target.URL.String(), bodyReader)
+	req, err := http.NewRequestWithContext(context.Background(), target.Method, target.URL.String(), bodyReader)
 	if err != nil {
 		return nil, err
 	}

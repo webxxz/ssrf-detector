@@ -80,7 +80,11 @@ func run(ctx context.Context, config *core.Config, targets []*core.Target) error
 		if err := oobServer.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start OOB server: %w", err)
 		}
-		defer oobServer.Stop(ctx)
+		defer func() {
+			if err := oobServer.Stop(ctx); err != nil && config.Verbose {
+				fmt.Printf("[WARN] Failed to stop OOB server cleanly: %v\n", err)
+			}
+		}()
 
 		if config.Verbose {
 			fmt.Printf("[+] OOB server started\n")
@@ -196,7 +200,7 @@ func generateReport(config *core.Config, findings []*core.Finding, state *core.S
 
 	// Write to file or stdout
 	if config.OutputFile != "" {
-		if err := os.WriteFile(config.OutputFile, data, 0644); err != nil {
+		if err := os.WriteFile(config.OutputFile, data, 0600); err != nil {
 			return fmt.Errorf("failed to write report file: %w", err)
 		}
 		fmt.Printf("[+] Report saved to: %s\n", config.OutputFile)

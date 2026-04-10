@@ -35,6 +35,7 @@ func NewClient(config *core.Config) *Client {
 		ExpectContinueTimeout: 1 * time.Second,
 		// Allow insecure TLS for testing (configured)
 		TLSClientConfig: &tls.Config{
+			MinVersion:         tls.VersionTLS12,
 			InsecureSkipVerify: false, // Should be configurable
 		},
 	}
