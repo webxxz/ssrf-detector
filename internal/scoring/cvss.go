@@ -242,6 +242,8 @@ func inferCredentialTheftChain(f *core.Finding) bool {
 			return true
 		}
 	}
+	// AWS metadata access is treated as credential-theft-capable by default because
+	// IMDS role paths can expose temporary IAM credentials in common SSRF chains.
 	return inferReachesAWSMetadata(f)
 }
 
