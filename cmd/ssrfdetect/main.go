@@ -107,6 +107,7 @@ func run(ctx context.Context, config *core.Config, targets []*core.Target) error
 	fpChecker := scoring.NewFalsePositiveChecker(config)
 
 	findings := make([]*core.Finding, 0)
+	scanStart := time.Now()
 	var reportState *core.ScanState
 
 	for idx, target := range targets {
@@ -121,7 +122,20 @@ func run(ctx context.Context, config *core.Config, targets []*core.Target) error
 				target.URL.String(), target.InjectionPoint.Type, target.InjectionPoint.Name, err)
 		}
 		if reportState == nil {
-			reportState = state
+			if len(targets) == 1 {
+				reportState = state
+			} else {
+				reportState = &core.ScanState{
+					Target:       targets[0],
+					Config:       config,
+					PhaseResults: make(map[core.DetectionPhase]*core.PhaseResult),
+					Capabilities: make(map[string]bool),
+					Metadata: map[string]interface{}{
+						"batch_target_count": len(targets),
+					},
+					StartTime: scanStart,
+				}
+			}
 		}
 
 		// Attempt to build finding from collected evidence

@@ -3,6 +3,7 @@ package report
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"ssrf-detector/internal/core"
@@ -34,7 +35,7 @@ func (r *JSONReporter) Generate(findings []*core.Finding, state *core.ScanState)
 			Version: "1.0.0",
 		},
 		Target: TargetInfo{
-			URL:    state.Target.URL.String(),
+			URL:    r.targetURL(state),
 			Method: state.Target.Method,
 		},
 		Summary:  r.buildSummary(findings, state),
@@ -47,6 +48,18 @@ func (r *JSONReporter) Generate(findings []*core.Finding, state *core.ScanState)
 	}
 
 	return json.MarshalIndent(report, "", "  ")
+}
+
+func (r *JSONReporter) targetURL(state *core.ScanState) string {
+	if state == nil || state.Target == nil || state.Target.URL == nil {
+		return ""
+	}
+	if state.Metadata != nil {
+		if batchCount, ok := state.Metadata["batch_target_count"].(int); ok && batchCount > 1 {
+			return fmt.Sprintf("batch://%d-targets", batchCount)
+		}
+	}
+	return state.Target.URL.String()
 }
 
 // JSONReport structure

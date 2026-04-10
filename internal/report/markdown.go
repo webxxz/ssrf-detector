@@ -33,7 +33,7 @@ func (r *MarkdownReporter) Generate(findings []*core.Finding, state *core.ScanSt
 
 	// Metadata
 	sb.WriteString(fmt.Sprintf("**Generated**: %s\n", time.Now().Format(time.RFC3339)))
-	sb.WriteString(fmt.Sprintf("**Target**: %s\n", state.Target.URL.String()))
+	sb.WriteString(fmt.Sprintf("**Target**: %s\n", r.targetLabel(state)))
 	sb.WriteString(fmt.Sprintf("**Scan Duration**: %s\n\n", time.Since(state.StartTime)))
 
 	// Executive Summary
@@ -60,6 +60,18 @@ func (r *MarkdownReporter) Generate(findings []*core.Finding, state *core.ScanSt
 	sb.WriteString("\n")
 
 	return []byte(sb.String()), nil
+}
+
+func (r *MarkdownReporter) targetLabel(state *core.ScanState) string {
+	if state == nil || state.Target == nil || state.Target.URL == nil {
+		return ""
+	}
+	if state.Metadata != nil {
+		if batchCount, ok := state.Metadata["batch_target_count"].(int); ok && batchCount > 1 {
+			return fmt.Sprintf("Batch scan (%d targets)", batchCount)
+		}
+	}
+	return state.Target.URL.String()
 }
 
 // buildTextSummary creates executive summary

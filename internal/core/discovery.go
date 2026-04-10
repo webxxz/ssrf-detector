@@ -60,12 +60,12 @@ func discoverHeaderPoints(headers http.Header, addPoint func(InjectionPoint)) {
 	}
 
 	interesting := map[string]bool{
-		"x-forwarded-host":  true,
+		"x-forwarded-host":   true,
 		"x-forwarded-server": true,
-		"x-original-url":    true,
-		"x-rewrite-url":     true,
-		"referer":           true,
-		"origin":            true,
+		"x-original-url":     true,
+		"x-rewrite-url":      true,
+		"referer":            true,
+		"origin":             true,
 	}
 
 	for key, values := range headers {
@@ -96,14 +96,7 @@ func discoverBodyPoints(target *Target, addPoint func(InjectionPoint)) {
 		var obj map[string]interface{}
 		if err := json.Unmarshal(target.Body, &obj); err == nil {
 			for key, value := range obj {
-				switch v := value.(type) {
-				case string:
-					if looksLikeURL(v) {
-						addPoint(InjectionPoint{Type: InjectionJSON, Name: key, Context: ContextJSON})
-					}
-				case map[string]interface{}, []interface{}:
-					// Keep discovery conservative at top-level for now.
-				default:
+				if v, ok := value.(string); ok && looksLikeURL(v) {
 					addPoint(InjectionPoint{Type: InjectionJSON, Name: key, Context: ContextJSON})
 				}
 			}
@@ -113,7 +106,7 @@ func discoverBodyPoints(target *Target, addPoint func(InjectionPoint)) {
 	if strings.Contains(contentType, "application/x-www-form-urlencoded") {
 		if form, err := url.ParseQuery(bodyStr); err == nil {
 			for key, values := range form {
-				if len(values) == 0 || looksLikeURL(values[0]) {
+				if len(values) > 0 {
 					addPoint(InjectionPoint{Type: InjectionBody, Name: key, Context: ContextURLEncoded})
 				}
 			}
@@ -123,8 +116,10 @@ func discoverBodyPoints(target *Target, addPoint func(InjectionPoint)) {
 
 func looksLikeURL(value string) bool {
 	value = strings.TrimSpace(strings.ToLower(value))
+	if strings.HasPrefix(value, "//") {
+		return len(value) > 2
+	}
 	return strings.HasPrefix(value, "http://") ||
 		strings.HasPrefix(value, "https://") ||
-		strings.HasPrefix(value, "//") ||
 		strings.HasPrefix(value, "ftp://")
 }
