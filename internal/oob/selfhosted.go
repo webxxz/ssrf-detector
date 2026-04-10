@@ -83,14 +83,16 @@ func (s *OOBServer) WaitForCallback(uuid string, timeout time.Duration) (*Callba
 	case <-timer.C:
 		s.mu.Lock()
 		waiters := s.waiters[uuid]
-		for i := range waiters {
-			if waiters[i] == ch {
-				s.waiters[uuid] = append(waiters[:i], waiters[i+1:]...)
-				break
+		filtered := make([]chan *CallbackEvent, 0, len(waiters))
+		for _, waiter := range waiters {
+			if waiter != ch {
+				filtered = append(filtered, waiter)
 			}
 		}
-		if len(s.waiters[uuid]) == 0 {
+		if len(filtered) == 0 {
 			delete(s.waiters, uuid)
+		} else {
+			s.waiters[uuid] = filtered
 		}
 		s.mu.Unlock()
 		return nil, false

@@ -21,13 +21,13 @@ func FingerprintWAF(resp *http.Response) WAFVendor {
 	if resp == nil {
 		return WAFNone
 	}
-	if resp.Header.Get("cf-ray") != "" {
+	if resp.Header.Get("CF-Ray") != "" {
 		return WAFCloudflare
 	}
-	if resp.Header.Get("x-check-cacheable") != "" {
+	if resp.Header.Get("X-Check-Cacheable") != "" {
 		return WAFAkamai
 	}
-	if resp.Header.Get("x-amzn-requestid") != "" || resp.Header.Get("x-amz-cf-id") != "" {
+	if resp.Header.Get("X-Amzn-Requestid") != "" || resp.Header.Get("X-Amz-Cf-Id") != "" {
 		return WAFAwsWAF
 	}
 
