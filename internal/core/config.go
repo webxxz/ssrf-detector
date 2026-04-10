@@ -25,6 +25,7 @@ func DefaultConfig() *Config {
         DryRun:               false,
         Verbose:              false,
         ReportFormat:         "json",
+        ReportPlatform:       "",
     }
 }
 

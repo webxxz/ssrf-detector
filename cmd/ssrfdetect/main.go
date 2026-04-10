@@ -178,7 +178,11 @@ func generateReport(config *core.Config, findings []*core.Finding, state *core.S
 	case "json":
 		reporter = report.NewJSONReporter(config)
 	case "markdown", "md":
-		reporter = report.NewMarkdownReporter(config)
+		if config.ReportPlatform != "" {
+			reporter = report.NewPlatformMarkdownReporter(config, report.Platform(strings.ToLower(config.ReportPlatform)))
+		} else {
+			reporter = report.NewMarkdownReporter(config)
+		}
 	case "csv":
 		reporter = report.NewCSVReporter(config)
 	default:
@@ -300,6 +304,13 @@ func parseArgs(args []string) (*core.Config, []*core.Target, error) {
 				return nil, nil, fmt.Errorf("missing value for %s", args[i])
 			}
 			config.ReportFormat = args[i+1]
+			i++
+
+		case "--platform":
+			if i+1 >= len(args) {
+				return nil, nil, fmt.Errorf("missing value for %s", args[i])
+			}
+			config.ReportPlatform = strings.ToLower(args[i+1])
 			i++
 
 		case "-v", "--verbose":
@@ -460,6 +471,7 @@ Optional Arguments:
   
   -o, --output <file>          Output file (default: stdout)
   -f, --format <format>        Report format: json|markdown|csv (default: json)
+  --platform <name>            Markdown template: hackerone|bugcrowd|intigriti|qnap
   -v, --verbose                Verbose output
   
   -h, --help                   Show this help message

@@ -268,6 +268,7 @@ type Config struct {
 	// Output
 	Verbose      bool
 	ReportFormat string
+	ReportPlatform string
 	OutputFile   string
 }
 
