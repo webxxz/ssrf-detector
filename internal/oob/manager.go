@@ -232,7 +232,7 @@ func (m *Manager) HTTPHandler() http.HandlerFunc {
 			Identifier: identifier,
 			Protocol:   "HTTP",
 			SourceIP:   extractSourceIP(r),
-			SourcePort: extractSourcePort(r),
+			SourcePort: extractSourcePort(r, m.config.Verbose),
 			Timestamp:  time.Now(),
 			Method:     r.Method,
 			Path:       r.URL.Path,
@@ -384,7 +384,7 @@ func extractSourceIP(r *http.Request) string {
 	return host
 }
 
-func extractSourcePort(r *http.Request) int {
+func extractSourcePort(r *http.Request, verbose bool) int {
 	_, portStr, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return 0
@@ -392,6 +392,9 @@ func extractSourcePort(r *http.Request) int {
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
+		if verbose {
+			fmt.Printf("[WARN] Failed to parse source port %q: %v\n", portStr, err)
+		}
 		return 0
 	}
 
