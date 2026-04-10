@@ -119,6 +119,11 @@ func (r *MarkdownReporter) formatFinding(num int, finding *core.Finding) string 
 	sb.WriteString("|----------|-------|\n")
 	sb.WriteString(fmt.Sprintf("| **Severity** | %s |\n", finding.Severity))
 	sb.WriteString(fmt.Sprintf("| **Confidence** | %s (%d/100) |\n", finding.Confidence, finding.ConfidenceScore))
+	sb.WriteString(fmt.Sprintf("| **Blind Fusion Score (0.00-1.00)** | %.2f |\n", finding.BlindFusionScore))
+	if finding.CVSS > 0 {
+		sb.WriteString(fmt.Sprintf("| **CVSS** | %.1f |\n", finding.CVSS))
+	}
+	sb.WriteString(fmt.Sprintf("| **Report Ready** | %t |\n", finding.ReportReady))
 	sb.WriteString(fmt.Sprintf("| **Vulnerable Parameter** | `%s` |\n", finding.VulnerableParameter))
 	if finding.CloudProvider != "" {
 		sb.WriteString(fmt.Sprintf("| **Cloud Provider** | %s |\n", finding.CloudProvider))
@@ -144,6 +149,14 @@ func (r *MarkdownReporter) formatFinding(num int, finding *core.Finding) string 
 		sb.WriteString("#### Internal IPs Accessed\n\n")
 		for _, ip := range finding.InternalIPsReached {
 			sb.WriteString(fmt.Sprintf("- `%s`\n", ip))
+		}
+		sb.WriteString("\n")
+	}
+
+	if len(finding.AttackChains) > 0 {
+		sb.WriteString("#### Attack Chain Reasoning\n\n")
+		for _, chain := range finding.AttackChains {
+			sb.WriteString(fmt.Sprintf("- **%s** (CVSS %.1f): %s\n", chain.Title, chain.CVSS, chain.Impact))
 		}
 		sb.WriteString("\n")
 	}

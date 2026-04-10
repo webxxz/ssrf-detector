@@ -59,6 +59,16 @@ func (e *ReachabilityEngine) Execute(ctx context.Context, target *core.Target, s
 	state.Baseline = baseline
 	result.Metadata["baseline"] = baseline
 
+	behavioralBaseline, err := CaptureBaselineProfile(ctx, e.httpClient, target)
+	if err != nil {
+		if e.config.Verbose {
+			fmt.Printf("[WARN] Behavioral baseline profiling failed: %v\n", err)
+		}
+	} else {
+		result.Metadata["baseline_profile"] = behavioralBaseline
+		state.Metadata["baseline_profile"] = behavioralBaseline
+	}
+
 	// Step 1b: Contextual fingerprinting (stack/edge/cloud hints)
 	fingerprint, err := e.collectContextFingerprint(ctx, target)
 	if err != nil {

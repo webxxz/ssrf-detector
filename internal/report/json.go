@@ -99,14 +99,25 @@ type Finding struct {
 	Severity            string            `json:"severity"`
 	Confidence          string            `json:"confidence"`
 	ConfidenceScore     int               `json:"confidence_score"`
+	BlindFusionScore    float64           `json:"blind_fusion_score"`
+	CVSS                float64           `json:"cvss"`
+	ReportReady         bool              `json:"report_ready"`
 	VulnerableParameter string            `json:"vulnerable_parameter"`
 	Impact              string            `json:"impact"`
 	Evidence            []EvidenceSummary `json:"evidence"`
+	AttackChains        []AttackChain     `json:"attack_chains,omitempty"`
 	InternalIPsReached  []string          `json:"internal_ips_reached,omitempty"`
 	CloudProvider       string            `json:"cloud_provider,omitempty"`
 	DetectedAt          time.Time         `json:"detected_at"`
 	ProofOfConcept      string            `json:"proof_of_concept,omitempty"`
 	Remediation         string            `json:"remediation"`
+}
+
+type AttackChain struct {
+	Title  string   `json:"title"`
+	Steps  []string `json:"steps"`
+	CVSS   float64  `json:"cvss"`
+	Impact string   `json:"impact"`
 }
 
 type EvidenceSummary struct {
@@ -181,6 +192,9 @@ func (r *JSONReporter) buildFindings(findings []*core.Finding) []Finding {
 			Severity:            string(f.Severity),
 			Confidence:          string(f.Confidence),
 			ConfidenceScore:     f.ConfidenceScore,
+			BlindFusionScore:    f.BlindFusionScore,
+			CVSS:                f.CVSS,
+			ReportReady:         f.ReportReady,
 			VulnerableParameter: f.VulnerableParameter,
 			Impact:              f.Impact,
 			InternalIPsReached:  f.InternalIPsReached,
@@ -188,6 +202,18 @@ func (r *JSONReporter) buildFindings(findings []*core.Finding) []Finding {
 			DetectedAt:          f.DetectedAt,
 			ProofOfConcept:      f.ProofOfConcept,
 			Remediation:         f.Remediation,
+		}
+
+		if len(f.AttackChains) > 0 {
+			finding.AttackChains = make([]AttackChain, 0, len(f.AttackChains))
+			for _, c := range f.AttackChains {
+				finding.AttackChains = append(finding.AttackChains, AttackChain{
+					Title:  c.Title,
+					Steps:  c.Steps,
+					CVSS:   c.CVSS,
+					Impact: c.Impact,
+				})
+			}
 		}
 
 		// Convert evidence
