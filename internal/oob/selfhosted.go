@@ -49,8 +49,8 @@ func (s *OOBServer) RegisterCallback(uuid string, event *CallbackEvent) {
 		return
 	}
 	s.mu.Lock()
-	waiters := s.waiters[uuid]
 	defer s.mu.Unlock()
+	waiters := s.waiters[uuid]
 	s.Callbacks[uuid] = event
 	for _, ch := range waiters {
 		select {
