@@ -12,7 +12,11 @@ import (
 	"time"
 )
 
+const maxRebindResponseBodyBytes = 64 * 1024
+
 type RebindProbe struct {
+	// ExternalIP/InternalIP are metadata placeholders for integrations that drive
+	// controlled DNS rebind infrastructure (first resolution vs second resolution).
 	ExternalIP string
 	InternalIP string
 	Domain     string
@@ -103,7 +107,7 @@ func doRebindAttempt(client *http.Client, targetURL string) (string, time.Durati
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxRebindResponseBodyBytes))
 	if err != nil {
 		return "", 0, err
 	}
