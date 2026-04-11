@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"ssrf-detector/internal/ai"
 	"ssrf-detector/internal/waf"
 )
 
@@ -22,6 +23,11 @@ type EnvironmentContext struct {
 	ProxyDetected bool
 	BackendLang   string
 	InternalRange []string
+
+	// Adaptive mutation context
+	InitialPayloadsFailed bool
+	LastBlockedPayload    string
+	LastWAFResponse       string
 }
 
 // MutationStrategy identifies a payload mutation for WAF bypass.
@@ -93,6 +99,22 @@ func GeneratePayloads(ctx *EnvironmentContext) []Payload {
 			Category: "internal",
 			Value:    fmt.Sprintf("http://%s/", subnet),
 		})
+	}
+
+	if ctx.WAFDetected && ctx.InitialPayloadsFailed && strings.TrimSpace(ctx.LastBlockedPayload) != "" {
+		if aiMutations, err := ai.MutateWithAI(ai.PayloadMutationRequest{
+			WAFVendor:      ctx.WAFVendor,
+			BlockedPayload: ctx.LastBlockedPayload,
+			WAFResponse:    ctx.LastWAFResponse,
+		}); err == nil && aiMutations != nil {
+			for idx, m := range aiMutations.Mutations {
+				payloads = append(payloads, Payload{
+					Name:     fmt.Sprintf("ai-waf-mutation-%d", idx+1),
+					Category: "ai_mutation",
+					Value:    m,
+				})
+			}
+		}
 	}
 
 	return dedupePayloads(payloads)

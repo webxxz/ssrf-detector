@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"ssrf-detector/internal/ai"
 	"ssrf-detector/internal/core"
 	"ssrf-detector/internal/scoring"
 )
@@ -27,6 +28,15 @@ func RenderForPlatform(finding *ScoredFinding, p Platform) string {
 		return ""
 	}
 	f := finding.Finding
+	score, vector := scoring.ComputeCVSS(&scoring.ScoredFinding{Finding: f})
+	if aiReport, err := ai.WriteTriageReport(&ai.ScoredFinding{
+		Finding:    f,
+		CVSSScore:  score,
+		CVSSVector: vector,
+	}, ai.Platform(strings.ToLower(string(p)))); err == nil && strings.TrimSpace(aiReport) != "" {
+		return aiReport
+	}
+
 	switch p {
 	case HackerOne:
 		return renderHackerOne(f)
