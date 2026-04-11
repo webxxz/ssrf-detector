@@ -18,9 +18,10 @@ type FetchAnalysisEngine struct {
 	oobManager core.OOBManager
 }
 
-const wafResponseSnippetLength = 500
+const maxWAFResponseSnippetLength = 500
 
-// 12 allows 10 failures for feedback-loop analysis plus up to 2 additional adaptive attempts.
+// 12 is a cap for one pass: feedback-loop strategy can trigger at 10 failures,
+// leaving room for up to two additional attempts in the same execution cycle.
 const maxContextAwarePayloadTests = 12
 
 func NewFetchAnalysisEngine(config *core.Config, httpClient core.HTTPClient, oobManager core.OOBManager) *FetchAnalysisEngine {
@@ -476,7 +477,7 @@ func (e *FetchAnalysisEngine) executeContextAwarePayloads(ctx context.Context, t
 			if resp != nil {
 				attempt.ResponseCode = resp.StatusCode
 				if resp.StatusCode >= 400 {
-					snippet := normalizeSample(resp.BodyBytes, wafResponseSnippetLength)
+					snippet := wafResponseSnippet(resp)
 					session.WAFResponses = append(session.WAFResponses, ai.WAFResponse{StatusCode: resp.StatusCode, BodySnippet: snippet})
 				}
 			}
@@ -499,7 +500,7 @@ func (e *FetchAnalysisEngine) executeContextAwarePayloads(ctx context.Context, t
 		if resp != nil {
 			attempt.ResponseCode = resp.StatusCode
 			if resp.StatusCode >= 400 {
-				snippet := normalizeSample(resp.BodyBytes, wafResponseSnippetLength)
+				snippet := wafResponseSnippet(resp)
 				session.WAFResponses = append(session.WAFResponses, ai.WAFResponse{StatusCode: resp.StatusCode, BodySnippet: snippet})
 			}
 		}
@@ -535,4 +536,11 @@ func mergeObservations(base, extra map[string]bool) {
 	for k, v := range extra {
 		base[k] = v
 	}
+}
+
+func wafResponseSnippet(resp *core.Response) string {
+	if resp == nil {
+		return ""
+	}
+	return normalizeSample(resp.BodyBytes, maxWAFResponseSnippetLength)
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Analyze every 10 failures to balance adaptation responsiveness with API-call cost.
 const failureAnalysisThreshold = 10
 
 // ScanSession keeps adaptive payload strategy context.

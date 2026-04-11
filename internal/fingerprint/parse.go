@@ -4,7 +4,9 @@ import "strings"
 
 // extractJSONValue is a lightweight extractor for simple flat JSON snippets in
 // probe responses where full unmarshaling is unnecessary. It expects lower/noisy
-// JSON-like text and may be inaccurate for deeply nested or escaped values.
+// JSON-like text and may be inaccurate for nested objects/arrays and escaped
+// quote sequences (for example, a value containing an escaped quote like a"b),
+// where naive delimiter scans fail.
 func extractJSONValue(text, key string) string {
 	needle := "\"" + strings.ToLower(key) + "\""
 	idx := strings.Index(text, needle)

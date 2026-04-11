@@ -2,6 +2,7 @@ package graph
 
 import "sort"
 
+// cvssCredentialTheft reflects account-takeover-grade impact for credential theft chains.
 const cvssCredentialTheft = 9.8
 
 // FindAttackPaths traverses from endpoint nodes and returns ranked high-impact paths.
@@ -18,7 +19,7 @@ func FindAttackPaths(graph *SSRFGraph) []AttackPath {
 		dfs(graph, n.ID, map[string]bool{}, []string{}, []string{}, &paths)
 	}
 
-	sort.SliceStable(paths, func(i, j int) bool {
+	sort.Slice(paths, func(i, j int) bool {
 		if paths[i].CVSS == paths[j].CVSS {
 			return paths[i].Length > paths[j].Length
 		}
