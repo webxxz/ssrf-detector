@@ -14,6 +14,7 @@ import (
 
 	"ssrf-detector/internal/core"
 	"ssrf-detector/internal/detection"
+	"ssrf-detector/internal/graph"
 	"ssrf-detector/internal/http"
 	"ssrf-detector/internal/oob"
 	"ssrf-detector/internal/report"
@@ -161,6 +162,18 @@ func run(ctx context.Context, config *core.Config, targets []*core.Target) error
 			continue
 		}
 		findings = append(findings, finding)
+	}
+
+	if reportState != nil {
+		scored := make([]*scoring.ScoredFinding, 0, len(findings))
+		for _, f := range findings {
+			scored = append(scored, &scoring.ScoredFinding{Finding: f})
+		}
+		ssrfGraph := graph.BuildGraph(scored)
+		attackPaths := graph.FindAttackPaths(ssrfGraph)
+		reportState.Metadata["ssrf_graph_node_count"] = len(ssrfGraph.Nodes)
+		reportState.Metadata["ssrf_graph_edge_count"] = len(ssrfGraph.Edges)
+		reportState.Metadata["attack_paths"] = attackPaths
 	}
 
 	// Generate report

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"ssrf-detector/internal/ai"
 	"ssrf-detector/internal/core"
 	"ssrf-detector/internal/payloads"
 )
@@ -17,7 +18,11 @@ type FetchAnalysisEngine struct {
 	oobManager core.OOBManager
 }
 
-const maxContextAwarePayloadTests = 5
+const maxWAFResponseSnippetLength = 500
+
+// 12 is a cap for one pass: feedback-loop strategy can trigger at 10 failures,
+// leaving room for up to two additional attempts in the same execution cycle.
+const maxContextAwarePayloadTests = 12
 
 func NewFetchAnalysisEngine(config *core.Config, httpClient core.HTTPClient, oobManager core.OOBManager) *FetchAnalysisEngine {
 	return &FetchAnalysisEngine{
@@ -102,7 +107,48 @@ func (e *FetchAnalysisEngine) Execute(ctx context.Context, target *core.Target, 
 	dynamicPayloads := payloads.GeneratePayloads(envCtx)
 	result.Metadata["dynamic_payload_count"] = len(dynamicPayloads)
 	if len(dynamicPayloads) > 0 {
-		result.Metadata["dynamic_payload_observations"] = e.executeContextAwarePayloads(ctx, target, dynamicPayloads)
+		observations, session := e.executeContextAwarePayloads(ctx, target, dynamicPayloads)
+		result.Metadata["dynamic_payload_observations"] = observations
+		if session != nil {
+			result.Metadata["payload_attempts"] = len(session.Attempts)
+			result.Metadata["payload_failures"] = len(session.Failures)
+			if adjustment := ai.AnalyzeSession(session); adjustment != nil {
+				result.Metadata["adaptive_strategy"] = adjustment.Strategy
+				if len(adjustment.PayloadHints) > 0 {
+					adaptive := make([]payloads.Payload, 0, len(adjustment.PayloadHints))
+					for i, hint := range adjustment.PayloadHints {
+						adaptive = append(adaptive, payloads.Payload{
+							Name:     fmt.Sprintf("feedback-hint-%d", i+1),
+							Category: "ai_feedback",
+							Value:    hint,
+						})
+					}
+					adaptiveObs, _ := e.executeContextAwarePayloads(ctx, target, adaptive)
+					mergeObservations(observations, adaptiveObs)
+					result.Metadata["dynamic_payload_observations"] = observations
+				}
+			}
+		}
+
+		if envCtx.WAFDetected && allObservationsFailed(observations) {
+			envCtx.InitialPayloadsFailed = true
+			if len(dynamicPayloads) > 0 {
+				envCtx.LastBlockedPayload = dynamicPayloads[0].Value
+			}
+			if session != nil && len(session.WAFResponses) > 0 {
+				last := session.WAFResponses[len(session.WAFResponses)-1]
+				envCtx.LastWAFResponse = fmt.Sprintf("status=%d body=%s", last.StatusCode, last.BodySnippet)
+			}
+
+			mutatedQueue := payloads.GeneratePayloads(envCtx)
+			aiMutated := filterAIPayloads(mutatedQueue)
+			if len(aiMutated) > 0 {
+				result.Metadata["ai_mutation_payload_count"] = len(aiMutated)
+				adaptiveObs, _ := e.executeContextAwarePayloads(ctx, target, aiMutated)
+				mergeObservations(observations, adaptiveObs)
+				result.Metadata["dynamic_payload_observations"] = observations
+			}
+		}
 	}
 
 	result.Success = true
@@ -370,6 +416,12 @@ func (e *FetchAnalysisEngine) buildEnvironmentContext(state *core.ScanState) *pa
 		if edgeHints, ok := fpRaw["edge_hints"].(map[string]bool); ok {
 			ctx.WAFDetected = edgeHints["cdn_or_waf"]
 			ctx.ProxyDetected = edgeHints["reverse_proxy"]
+			switch {
+			case edgeHints["cloudflare"]:
+				ctx.WAFVendor = "cloudflare"
+			case edgeHints["akamai"]:
+				ctx.WAFVendor = "akamai"
+			}
 		}
 		if cloudHints, ok := fpRaw["cloud_hints"].([]string); ok && len(cloudHints) > 0 {
 			ctx.CloudProvider = strings.ToLower(cloudHints[0])
@@ -385,12 +437,18 @@ func (e *FetchAnalysisEngine) buildEnvironmentContext(state *core.ScanState) *pa
 	return ctx
 }
 
-func (e *FetchAnalysisEngine) executeContextAwarePayloads(ctx context.Context, target *core.Target, generated []payloads.Payload) map[string]bool {
+func (e *FetchAnalysisEngine) executeContextAwarePayloads(ctx context.Context, target *core.Target, generated []payloads.Payload) (map[string]bool, *ai.ScanSession) {
 	maxTests := maxContextAwarePayloadTests
 	if len(generated) < maxTests {
 		maxTests = len(generated)
 	}
 	observation := make(map[string]bool, maxTests)
+	session := &ai.ScanSession{
+		SessionID: fmt.Sprintf("fetch-%d", time.Now().UnixNano()),
+	}
+	if target != nil && target.URL != nil {
+		session.Target = target.URL.String()
+	}
 
 	for i := 0; i < maxTests; i++ {
 		payload := generated[i]
@@ -402,18 +460,87 @@ func (e *FetchAnalysisEngine) executeContextAwarePayloads(ctx context.Context, t
 				continue
 			}
 			value = strings.ReplaceAll(value, "{{OOB}}", identifier+"."+e.config.OOBDomain)
-			_, err = e.sendTestRequest(ctx, target, value)
+			resp, err := e.sendTestRequest(ctx, target, value)
 			if err != nil && e.config.Verbose {
 				fmt.Printf("[WARN] Context-aware payload %s failed: %v\n", payload.Name, err)
 			}
 			callback, _ := e.oobManager.CheckCallback(identifier)
 			observation[payload.Name] = callback != nil
+			attempt := ai.PayloadAttempt{Payload: value, Strategy: payload.Category, TimingMs: 0}
+			if callback != nil {
+				attempt.Result = "success"
+			} else if err != nil {
+				attempt.Result = "error"
+			} else {
+				attempt.Result = "blocked"
+			}
+			if resp != nil {
+				attempt.ResponseCode = resp.StatusCode
+				if resp.StatusCode >= 400 {
+					snippet := wafResponseSnippet(resp)
+					session.WAFResponses = append(session.WAFResponses, ai.WAFResponse{StatusCode: resp.StatusCode, BodySnippet: snippet})
+				}
+			}
+			ai.RecordAttempt(session, attempt)
 			continue
 		}
 
 		resp, err := e.sendTestRequest(ctx, target, value)
 		observation[payload.Name] = err == nil && resp != nil && resp.StatusCode < 500
+		attempt := ai.PayloadAttempt{Payload: value, Strategy: payload.Category, TimingMs: 0}
+		if err != nil {
+			attempt.Result = "error"
+		} else if resp != nil && resp.StatusCode < 500 {
+			attempt.Result = "success"
+		} else if resp != nil && resp.StatusCode >= 500 {
+			attempt.Result = "server_error"
+		} else {
+			attempt.Result = "blocked"
+		}
+		if resp != nil {
+			attempt.ResponseCode = resp.StatusCode
+			if resp.StatusCode >= 400 {
+				snippet := wafResponseSnippet(resp)
+				session.WAFResponses = append(session.WAFResponses, ai.WAFResponse{StatusCode: resp.StatusCode, BodySnippet: snippet})
+			}
+		}
+		ai.RecordAttempt(session, attempt)
 	}
 
-	return observation
+	return observation, session
+}
+
+func allObservationsFailed(observations map[string]bool) bool {
+	if len(observations) == 0 {
+		return false
+	}
+	for _, ok := range observations {
+		if ok {
+			return false
+		}
+	}
+	return true
+}
+
+func filterAIPayloads(in []payloads.Payload) []payloads.Payload {
+	out := make([]payloads.Payload, 0)
+	for _, p := range in {
+		if p.Category == "ai_mutation" || p.Category == "ai_feedback" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func mergeObservations(base, extra map[string]bool) {
+	for k, v := range extra {
+		base[k] = v
+	}
+}
+
+func wafResponseSnippet(resp *core.Response) string {
+	if resp == nil {
+		return ""
+	}
+	return normalizeSample(resp.BodyBytes, maxWAFResponseSnippetLength)
 }

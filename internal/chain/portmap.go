@@ -1,6 +1,11 @@
 package chain
 
-import "time"
+import (
+	"strings"
+	"time"
+
+	"ssrf-detector/internal/fingerprint"
+)
 
 const portFilteredStateLatencyThreshold = 1500 * time.Millisecond
 
@@ -16,6 +21,9 @@ var SensitivePorts = []int{
 // ProbeFunc executes a single SSRF timing/availability probe.
 type ProbeFunc func(target string, port int) (time.Duration, error)
 
+// FingerprintProbeFunc executes SSRF-compatible service fingerprint probes.
+type FingerprintProbeFunc = fingerprint.ProbeExecutor
+
 type PortExposure struct {
 	Target           string        `json:"target"`
 	Port             int           `json:"port"`
@@ -24,6 +32,9 @@ type PortExposure struct {
 	Latency          time.Duration `json:"latency"`
 	Critical         bool          `json:"critical"`
 	UpgradeCandidate bool          `json:"upgrade_candidate"`
+	Authenticated    bool          `json:"authenticated,omitempty"`
+	Version          string        `json:"version,omitempty"`
+	Fingerprint      string        `json:"fingerprint,omitempty"`
 }
 
 type NetworkMap struct {
@@ -35,6 +46,11 @@ type NetworkMap struct {
 
 // MapInternalNetwork builds an internal reachability map from an SSRF probe oracle.
 func MapInternalNetwork(ssrfFunc ProbeFunc) *NetworkMap {
+	return MapInternalNetworkWithFingerprint(ssrfFunc, nil)
+}
+
+// MapInternalNetworkWithFingerprint builds a network map and fingerprints open services.
+func MapInternalNetworkWithFingerprint(ssrfFunc ProbeFunc, fpProbe FingerprintProbeFunc) *NetworkMap {
 	m := &NetworkMap{
 		GeneratedAt:  time.Now(),
 		Reachability: map[string][]int{},
@@ -62,6 +78,21 @@ func MapInternalNetwork(ssrfFunc ProbeFunc) *NetworkMap {
 				Critical:         isCriticalPort(port),
 				UpgradeCandidate: isUpgradeCandidatePort(port),
 			}
+			if state == "open" {
+				fp := fingerprint.FingerprintOpenPort(target, port, fpProbe)
+				if fp.Confirmed {
+					if strings.TrimSpace(fp.Service) != "" {
+						ex.Service = fp.Service
+						ex.Fingerprint = fp.Service
+					}
+					ex.Authenticated = fp.Authenticated
+					ex.Version = fp.Version
+					if shouldUpgradeForService(fp.Service) {
+						ex.Critical = true
+						ex.UpgradeCandidate = true
+					}
+				}
+			}
 			m.Exposures = append(m.Exposures, ex)
 			if state == "open" {
 				m.Reachability[target] = append(m.Reachability[target], port)
@@ -80,6 +111,15 @@ func isCriticalPort(port int) bool {
 
 func isUpgradeCandidatePort(port int) bool {
 	return port == 2375 || port == 10250
+}
+
+func shouldUpgradeForService(service string) bool {
+	switch strings.ToLower(service) {
+	case "redis", "kubernetes", "jenkins", "elasticsearch":
+		return true
+	default:
+		return false
+	}
 }
 
 func serviceNameForPort(port int) string {
