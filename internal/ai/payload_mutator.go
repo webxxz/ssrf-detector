@@ -19,6 +19,8 @@ type PayloadMutationResponse struct {
 	Strategy  string
 }
 
+const maxMutationCount = 5
+
 const payloadMutatorSystemPrompt = `You are an SSRF payload mutation engine. Given:
 1. A WAF vendor name
 2. A blocked payload
@@ -61,11 +63,7 @@ func MutateWithAI(req PayloadMutationRequest) (*PayloadMutationResponse, error) 
 }
 
 func parseMutationArray(raw string) ([]string, error) {
-	trimmed := strings.TrimSpace(raw)
-	trimmed = strings.TrimPrefix(trimmed, "```json")
-	trimmed = strings.TrimPrefix(trimmed, "```")
-	trimmed = strings.TrimSuffix(trimmed, "```")
-	trimmed = strings.TrimSpace(trimmed)
+	trimmed := normalizeClaudeJSON(raw)
 
 	start := strings.Index(trimmed, "[")
 	end := strings.LastIndex(trimmed, "]")
@@ -90,7 +88,7 @@ func parseMutationArray(raw string) ([]string, error) {
 		}
 		seen[m] = struct{}{}
 		uniq = append(uniq, m)
-		if len(uniq) == 5 {
+		if len(uniq) == maxMutationCount {
 			break
 		}
 	}

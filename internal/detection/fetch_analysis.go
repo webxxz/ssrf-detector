@@ -18,6 +18,9 @@ type FetchAnalysisEngine struct {
 	oobManager core.OOBManager
 }
 
+const wafResponseSnippetLength = 500
+
+// 12 allows 10 failures for feedback-loop analysis plus up to 2 additional adaptive attempts.
 const maxContextAwarePayloadTests = 12
 
 func NewFetchAnalysisEngine(config *core.Config, httpClient core.HTTPClient, oobManager core.OOBManager) *FetchAnalysisEngine {
@@ -473,7 +476,7 @@ func (e *FetchAnalysisEngine) executeContextAwarePayloads(ctx context.Context, t
 			if resp != nil {
 				attempt.ResponseCode = resp.StatusCode
 				if resp.StatusCode >= 400 {
-					snippet := normalizeSample(resp.BodyBytes, 500)
+					snippet := normalizeSample(resp.BodyBytes, wafResponseSnippetLength)
 					session.WAFResponses = append(session.WAFResponses, ai.WAFResponse{StatusCode: resp.StatusCode, BodySnippet: snippet})
 				}
 			}
@@ -489,14 +492,14 @@ func (e *FetchAnalysisEngine) executeContextAwarePayloads(ctx context.Context, t
 		} else if resp != nil && resp.StatusCode < 500 {
 			attempt.Result = "success"
 		} else if resp != nil && resp.StatusCode >= 500 {
-			attempt.Result = "timeout"
+			attempt.Result = "server_error"
 		} else {
 			attempt.Result = "blocked"
 		}
 		if resp != nil {
 			attempt.ResponseCode = resp.StatusCode
 			if resp.StatusCode >= 400 {
-				snippet := normalizeSample(resp.BodyBytes, 500)
+				snippet := normalizeSample(resp.BodyBytes, wafResponseSnippetLength)
 				session.WAFResponses = append(session.WAFResponses, ai.WAFResponse{StatusCode: resp.StatusCode, BodySnippet: snippet})
 			}
 		}

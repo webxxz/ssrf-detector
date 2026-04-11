@@ -14,6 +14,7 @@ import (
 const (
 	defaultClaudeModel   = "claude-3-5-sonnet-20241022"
 	anthropicMessagesURL = "https://api.anthropic.com/v1/messages"
+	maxClaudeErrorLength = 500
 )
 
 type claudeMessageRequest struct {
@@ -88,8 +89,8 @@ func callClaude(systemPrompt, userPrompt string, maxTokens int) (string, error) 
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		trimmed := string(respBody)
-		if len(trimmed) > 500 {
-			trimmed = trimmed[:500]
+		if len(trimmed) > maxClaudeErrorLength {
+			trimmed = trimmed[:maxClaudeErrorLength]
 		}
 		return "", fmt.Errorf("anthropic api status %d: %s", resp.StatusCode, trimmed)
 	}

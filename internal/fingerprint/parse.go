@@ -2,6 +2,9 @@ package fingerprint
 
 import "strings"
 
+// extractJSONValue is a lightweight extractor for simple flat JSON snippets in
+// probe responses where full unmarshaling is unnecessary. It expects lower/noisy
+// JSON-like text and may be inaccurate for deeply nested or escaped values.
 func extractJSONValue(text, key string) string {
 	needle := "\"" + strings.ToLower(key) + "\""
 	idx := strings.Index(text, needle)
@@ -33,6 +36,8 @@ func extractJSONValue(text, key string) string {
 	return strings.TrimSpace(rem)
 }
 
+// extractJSONInt extracts a numeric field from a flat JSON-like snippet.
+// It is intentionally tolerant of non-JSON wrappers but only handles base-10 ints.
 func extractJSONInt(text, key string) int {
 	v := extractJSONValue(text, key)
 	if v == "" {
@@ -48,6 +53,8 @@ func extractJSONInt(text, key string) int {
 	return n
 }
 
+// countJSONArrayItems estimates array length for a top-level key in compact
+// JSON-like snippets. It uses comma counting and is intended for heuristic probes.
 func countJSONArrayItems(text, key string) int {
 	needle := "\"" + strings.ToLower(key) + "\""
 	idx := strings.Index(text, needle)

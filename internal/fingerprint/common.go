@@ -1,6 +1,9 @@
 package fingerprint
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 // ProbeExecutor executes a service-specific probe.
 type ProbeExecutor func(target string, port int, path string, payload string) (statusCode int, body []byte, latency time.Duration, err error)
@@ -47,7 +50,7 @@ func FingerprintOpenPort(target string, port int, probe ProbeExecutor) ServiceFi
 			Version:       "",
 			Details: map[string]string{
 				"cluster_name": r.ClusterName,
-				"node_count":   itoa(r.NodeCount),
+				"node_count":   strconv.Itoa(r.NodeCount),
 			},
 			Confirmed: r.Reachable,
 		}
@@ -58,27 +61,10 @@ func FingerprintOpenPort(target string, port int, probe ProbeExecutor) ServiceFi
 			Reachable:     r.Reachable,
 			Authenticated: r.Authenticated,
 			Version:       "",
-			Details:       map[string]string{"job_count": itoa(r.JobCount)},
+			Details:       map[string]string{"job_count": strconv.Itoa(r.JobCount)},
 			Confirmed:     r.Reachable,
 		}
 	default:
 		return ServiceFingerprintResult{}
 	}
-}
-
-func itoa(v int) string {
-	if v == 0 {
-		return "0"
-	}
-	sign := ""
-	if v < 0 {
-		sign = "-"
-		v = -v
-	}
-	digits := make([]byte, 0, 10)
-	for v > 0 {
-		digits = append([]byte{byte('0' + (v % 10))}, digits...)
-		v /= 10
-	}
-	return sign + string(digits)
 }

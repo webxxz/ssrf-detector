@@ -2,6 +2,8 @@ package graph
 
 import "sort"
 
+const cvssCredentialTheft = 9.8
+
 // FindAttackPaths traverses from endpoint nodes and returns ranked high-impact paths.
 func FindAttackPaths(graph *SSRFGraph) []AttackPath {
 	if graph == nil || len(graph.Nodes) == 0 {
@@ -46,7 +48,8 @@ func dfs(graph *SSRFGraph, current string, seen map[string]bool, nodeIDs, nodeTy
 			cvss = 9.0
 		}
 		if node.Value == "CredTheft" {
-			cvss = 9.8
+			// Credential-theft is treated as critical here because it often implies account takeover.
+			cvss = cvssCredentialTheft
 		}
 		*out = append(*out, AttackPath{
 			NodeIDs:   append([]string(nil), nodeIDs...),

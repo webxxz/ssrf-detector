@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const failureAnalysisThreshold = 10
+
 // ScanSession keeps adaptive payload strategy context.
 type ScanSession struct {
 	SessionID    string
@@ -56,11 +58,11 @@ func RecordAttempt(session *ScanSession, attempt PayloadAttempt) {
 
 // AnalyzeSession asks Claude for strategy guidance after each 10 failures.
 func AnalyzeSession(session *ScanSession) *StrategyAdjustment {
-	if session == nil || len(session.Failures) == 0 || len(session.Failures)%10 != 0 {
+	if session == nil || len(session.Failures) == 0 || len(session.Failures)%failureAnalysisThreshold != 0 {
 		return nil
 	}
 
-	start := len(session.Failures) - 10
+	start := len(session.Failures) - failureAnalysisThreshold
 	if start < 0 {
 		start = 0
 	}
@@ -106,11 +108,7 @@ strategy (string), payload_hints (array of up to 5 strings), rationale (string).
 }
 
 func parseStrategyAdjustment(raw string) (*StrategyAdjustment, error) {
-	trimmed := strings.TrimSpace(raw)
-	trimmed = strings.TrimPrefix(trimmed, "```json")
-	trimmed = strings.TrimPrefix(trimmed, "```")
-	trimmed = strings.TrimSuffix(trimmed, "```")
-	trimmed = strings.TrimSpace(trimmed)
+	trimmed := normalizeClaudeJSON(raw)
 
 	start := strings.Index(trimmed, "{")
 	end := strings.LastIndex(trimmed, "}")
